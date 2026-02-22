@@ -2,22 +2,22 @@ import fastf1
 import pandas as pd
 import os
 
-# 1. Configurazione Cache (FONDAMENTALE)
+#cache configuration
 if not os.path.exists('cache'):
     os.makedirs('cache')
 fastf1.Cache.enable_cache('cache') 
 
 def get_full_season_data(year=2025):
     """
-    Scarica i dati di gara (Race) per l'anno specificato.
-    Include Telemetria di base (SpeedST), Meteo e Posizione.
+    Download race data for the year passed as parameters.
+    It retrieves also telemetry data, weather and position.
     """
     
-    # Ottieni il calendario
+    
     try:
         schedule = fastf1.get_event_schedule(year)
     except Exception as e:
-        print(f"Errore nel scaricare il calendario: {e}")
+        print(f"Error in downloading schedule: {e}")
         return pd.DataFrame()
     
     # Filtra solo le gare ufficiali
@@ -31,11 +31,7 @@ def get_full_season_data(year=2025):
         round_num = event['RoundNumber']
         country = event['Country']
         event_name = event['EventName']
-        
-        # Saltiamo le gare future (se stiamo eseguendo oggi per testare)
-        # Se stai simulando il 2025 "nel futuro", rimuovi questo controllo se necessario
-        # ma fastf1 darà errore se la gara non è avvenuta.
-        
+    
         print(f"\nProcessing Round {round_num}: {event_name} ({country})")
         
         try:
@@ -53,23 +49,23 @@ def get_full_season_data(year=2025):
                 continue
 
             # --- SELEZIONE COLONNE (AGGIORNATA) ---
-            # Definiamo le colonne che VOGLIAMO
+            # scegliamo le colonne da considerare
             cols_to_keep = [
                 'Driver', 'Team', 'LapNumber', 'LapTime', 'LapStartTime', 
                 'Sector1Time', 'Sector2Time', 'Sector3Time', 
                 'Compound', 'TyreLife', 'FreshTyre', 'Stint', 'IsPersonalBest',
                 # NUOVE COLONNE AGGIUNTE:
                 'SpeedST',      # Speed Trap (Velocità massima)
-                'IsAccurate',   # Fondamentale per pulire i dati PCA
+                'IsAccurate',   # per pulire i dati PCA
                 'Position',     # Posizione in gara
-                'TrackStatus'   # Status pista (1=Verde, 4=SC, etc.)
+                'TrackStatus'   # Status pista
             ]
             
-            # Prendiamo solo quelle che esistono davvero nel dataset (per evitare errori)
+            
             existing_cols = [c for c in cols_to_keep if c in laps.columns]
             laps_subset = laps[existing_cols].copy()
 
-            # Aggiungi info gara
+            # Aggiungiamo informazioni sulla gara
             laps_subset['RoundNumber'] = round_num
             laps_subset['EventName'] = event_name
             laps_subset['Country'] = country
@@ -78,11 +74,11 @@ def get_full_season_data(year=2025):
             # --- MERGE METEO ---
             weather = session.weather_data
             
-            # Converti i tempi per il merge
+            # Conversione dei tempi per il merge
             laps_subset['LapStartTime'] = pd.to_timedelta(laps_subset['LapStartTime'])
             weather['Time'] = pd.to_timedelta(weather['Time'])
 
-            # Merge asof (nearest time)
+            
             merged_data = pd.merge_asof(
                 laps_subset.sort_values('LapStartTime'),
                 weather[['Time', 'AirTemp', 'TrackTemp', 'Humidity', 'Rainfall', 'WindSpeed', 'WindDirection']],
@@ -115,8 +111,7 @@ def get_full_season_data(year=2025):
 
 # --- ESECUZIONE ---
 if __name__ == "__main__":
-    # Se vuoi testare con dati reali ORA, usa year=2024
-    # Se stai simulando il progetto futuro, usa year=2025
+    
     ANNO_DA_SCARICARE = 2025 
     
     df_result = get_full_season_data(ANNO_DA_SCARICARE)
