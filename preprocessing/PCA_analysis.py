@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 df = pd.read_csv("data/f1_2025_full_data_v2.csv")
 
 #we select only data related to one grand prix
-df = df[df["EventName"] == "Australian Grand Prix"].copy()
+df = df[df["EventName"] == "Dutch Grand Prix"].copy()
 
 #keep only necessary columns for performing clustering
 features = [
@@ -22,7 +22,7 @@ features = [
 ]
 
 #values to preserve
-meta_cols = ['Driver', 'LapNumber', 'Team', 'LapTime_Sec', 'Position']
+meta_cols = ['Driver', 'LapNumber', 'Team', 'LapTime_Sec', 'Position', 'Compound']
 
 #conversion of compound types in numbers
 compound_map = {
@@ -63,5 +63,7 @@ data.insert(len(data.columns), 'pca_y', projection[:,1])
 
 
 # save the new csv file
-data.to_csv("data/Australian_Grand_Prix.csv", index=False)
+data.to_csv("data/Spanish_Grand_Prix.csv", index=False)
+
+print("PCA Completed")
 
