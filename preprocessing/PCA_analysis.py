@@ -58,10 +58,10 @@ data.insert(0, 'kmeans_labels', labels)
 # compute 2D PCA and append the values in the dataframe as pca_x, pca_y
 projection = PCA(n_components=2, random_state=0).fit_transform(numerical_values)
 projection = MinMaxScaler().fit_transform(projection)
-df.insert(len(df.columns), 'pca_x', projection[:,0])
-df.insert(len(df.columns), 'pca_y', projection[:,1])
+data.insert(len(data.columns), 'pca_x', projection[:,0])
+data.insert(len(data.columns), 'pca_y', projection[:,1])
 
 
 # save the new csv file
-df.to_csv("../data/Australian_Grand_Prix.csv", index=False)
+data.to_csv("data/Australian_Grand_Prix.csv", index=False)
 
