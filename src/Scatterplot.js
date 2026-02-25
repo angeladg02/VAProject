@@ -78,16 +78,16 @@ export function drawScatterPlot(data, containerSelector) {
     }
 
     // 8. Disegno dei punti (Scatter) colorati per mescola
-    svg.selectAll("circle")
+     const circles = svg.selectAll("circle")
         .data(data)
         .enter()
         .append("circle")
         .attr("cx", d => xScale(+d.pca_x))
         .attr("cy", d => yScale(+d.pca_y))
-        .attr("r", 5) // Raggio base
-        .attr("fill", d => colorScale(d.Compound)) // Colore basato sulla mescola
-        .attr("opacity", 0.8)
-        .attr("stroke", "black") // Contorno nero utile soprattutto per le gomme bianche (HARD)
+        .attr("r", 5)// Raggio base
+        .attr("fill", d => colorScale(d.Compound))// Colore basato sulla mescola
+        .attr("opacity", 0.7)
+        .attr("stroke", "black")  // Contorno nero utile soprattutto per le gomme bianche (HARD)
         .attr("stroke-width", 0.5)
         
         // Eventi per l'interazione col mouse
@@ -154,4 +154,44 @@ export function drawScatterPlot(data, containerSelector) {
             .style("font-family", "sans-serif")
             .text(compound);
     });
+
+    // 10. Implementazione del BRUSHING (Il "Trigger")
+    const brush = d3.brush()
+        .extent([[0, 0], [innerWidth, innerHeight]]) // Area dove si può spennellare
+        .on("start brush end", brushed); // Eventi da gestire
+
+    // Aggiungiamo il gruppo del brush all'SVG
+    svg.append("g")
+        .attr("class", "brush")
+        .call(brush);
+
+    function brushed(event) {
+        const selection = event.selection;
+        if (selection === null) {
+            // Se non c'è selezione, mostriamo tutti i dati o resettiamo
+            circles.classed("selected", false).attr("opacity", 0.7);
+            if (onBrushSelection) onBrushSelection(data); 
+        } else {
+            // Troviamo quali punti rientrano nel rettangolo di selezione
+            const [[x0, y0], [x1, y1]] = selection;
+            
+            const selectedData = data.filter(d => {
+                const cx = xScale(+d.pca_x);
+                const cy = yScale(+d.pca_y);
+                return x0 <= cx && cx <= x1 && y0 <= cy && cy <= y1;
+            });
+
+            // Feedback visivo: evidenziamo i punti selezionati
+            circles.attr("opacity", d => {
+                const cx = xScale(+d.pca_x);
+                const cy = yScale(+d.pca_y);
+                return (x0 <= cx && cx <= x1 && y0 <= cy && cy <= y1) ? 1 : 0.1;
+            });
+
+            // Eseguiamo il "Trigger": passiamo i dati selezionati alla funzione di callback
+            if (onBrushSelection) {
+                onBrushSelection(selectedData);
+            }
+        }
+    }
 }

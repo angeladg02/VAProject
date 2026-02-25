@@ -1,69 +1,74 @@
 import pandas as pd
+import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from sklearn.metrics import adjusted_rand_score
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
-#load data
+# 1. Caricamento dati
 df = pd.read_csv("data/f1_2025_full_data_v2.csv")
 
-#we select only data related to one grand prix
-df = df[df["EventName"] == "Dutch Grand Prix"].copy()
+# 2. Selezione Gran Premio
+target_event = "Dutch Grand Prix"
+df_gp = df[df["EventName"] == target_event].copy()
 
-#keep only necessary columns for performing clustering
-features = [
-    'Sector1Time_Sec', 
-    'Sector2Time_Sec', 
-    'Sector3Time_Sec', 
-    'TyreLife', 
-    'TrackTemp', 
-    'SpeedST',
-    'Compound_Num'
-]
+# 3. Filtro Outlier (indispensabile per non schiacciare i cluster)
+median_lap = df_gp['LapTime_Sec'].median()
+df_gp = df_gp[df_gp['LapTime_Sec'] <= median_lap * 1.1].copy()
 
-#values to preserve
+# 4. Feature Engineering: Delta Times
+df_gp['S1_Delta'] = df_gp['Sector1Time_Sec'] - df_gp['Sector1Time_Sec'].min()
+df_gp['S2_Delta'] = df_gp['Sector2Time_Sec'] - df_gp['Sector2Time_Sec'].min()
+df_gp['S3_Delta'] = df_gp['Sector3Time_Sec'] - df_gp['Sector3Time_Sec'].min()
+
+# 5. SOLUZIONE 1: Rimozione variabili a bassa correlazione/varianza
+# Controlliamo quanto variano TrackTemp e WindSpeed. Se la variazione è minima, le escludiamo.
+features = ['S1_Delta', 'S2_Delta', 'S3_Delta', 'TyreLife', 'SpeedST']
+
+if df_gp['TrackTemp'].std() > 0.5: # Consideriamo significativa una variazione > 0.5°C
+    features.append('TrackTemp')
+else:
+    print("TrackTemp rimossa: variazione troppo bassa (rumore).")
+
+if df_gp['WindSpeed'].std() > 1.0: # Consideriamo significativa una variazione > 1 km/h
+    features.append('WindSpeed')
+else:
+    print("WindSpeed rimossa: variazione troppo bassa (rumore).")
+
+# Aggiungiamo la mescola numerica
+compound_map = {"SOFT": 1, "MEDIUM": 2, "HARD": 3, "INTERMEDIATE": 4, "WET": 5}
+df_gp['Compound_Num'] = df_gp['Compound'].map(compound_map)
+features.append('Compound_Num')
+
+# 6. Preparazione Dataset
 meta_cols = ['Driver', 'LapNumber', 'Team', 'LapTime_Sec', 'Position', 'Compound']
-
-#conversion of compound types in numbers
-compound_map = {
-    "SOFT" : 1,
-    "MEDIUM" : 2,
-    "HARD" : 3,
-    "INTERMEDIATE" : 4,
-    "WET" : 5
-}
-
-df['Compound_Num'] = df['Compound'].map(compound_map)
-
-#we remove the data that we don't need
-columns_to_keep = meta_cols + features
-data = df[columns_to_keep].copy()
-
-#we remove NaN features
-data = data.dropna(subset=features).copy()
-#reset index
+data = df_gp[meta_cols + features].dropna(subset=features).copy()
 data.reset_index(drop=True, inplace=True)
-#extract numerical value that have to be normalized
-numerical_values = data[features]
-#normalize data
-numerical_values = StandardScaler().fit_transform(numerical_values)
 
-#cluster the data with k-means
+# 7. Normalizzazione Standard
+X = StandardScaler().fit_transform(data[features])
+X_df = pd.DataFrame(X, columns=features)
+
+# 8. SOLUZIONE 2: Aumentare il peso dei tempi (Feature Weighting)
+# Moltiplichiamo i delta dei settori per 1.5 per forzare la PCA a dare loro più importanza
+weight = 1.5
+X_df['S1_Delta'] *= weight
+X_df['S2_Delta'] *= weight
+X_df['S3_Delta'] *= weight
+
+# 9. K-Means e PCA sui dati pesati
 km = KMeans(n_clusters=5, init="k-means++", n_init=20, random_state=0)
-labels = km.fit_predict(numerical_values)
-data.insert(0, 'kmeans_labels', labels)
+data.insert(0, 'kmeans_labels', km.fit_predict(X_df))
 
+pca = PCA(n_components=2, random_state=0)
+projection = pca.fit_transform(X_df)
 
+data['pca_x'] = projection[:, 0]
+data['pca_y'] = projection[:, 1]
 
-# compute 2D PCA and append the values in the dataframe as pca_x, pca_y
-projection = PCA(n_components=2, random_state=0).fit_transform(numerical_values)
-projection = MinMaxScaler().fit_transform(projection)
-data.insert(len(data.columns), 'pca_x', projection[:,0])
-data.insert(len(data.columns), 'pca_y', projection[:,1])
+# 10. Log Varianza (da inserire nel report)
+print(f"--- Varianza Spiegata con Pesi ({target_event}) ---")
+print(f"PC1: {pca.explained_variance_ratio_[0]*100:.2f}%")
+print(f"PC2: {pca.explained_variance_ratio_[1]*100:.2f}%")
+print(f"Totale: {np.sum(pca.explained_variance_ratio_)*100:.2f}%")
 
-
-# save the new csv file
-data.to_csv("data/Spanish_Grand_Prix.csv", index=False)
-
-print("PCA Completed")
-
+data.to_csv("data/Dutch_Grand_Prix_Weighted.csv", index=False)
