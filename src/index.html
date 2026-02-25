@@ -1,18 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
+<html lang="it">
+<head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="data:image/x-icon;base64,AA">
-    <title><%= htmlWebpackPlugin.options.title %></title>
-  </head>
-
-  <body>
-    <h1>F1 Visual Analytics - Dutch GP Analysis</h1>
-    <div style="display: flex; gap: 20px;">
-        <div id="scatterplot-container"></div>
-        <div id="bar-chart-container"></div>
+    <title>F1 Visual Analytics Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; height: 100vh; background-color: #f0f2f5; }
+        .sidebar { width: 300px; background: #1a1a2e; color: white; padding: 20px; display: flex; flex-direction: column; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+        .main-content { flex: 1; overflow-y: auto; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; grid-gap: 20px; }
+        .chart-card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .chart-card.full-width { grid-column: span 2; }
+        h1 { font-size: 1.5rem; margin-bottom: 20px; border-bottom: 2px solid #e94560; padding-bottom: 10px; }
+        .stat-box { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #e94560; }
+        .stat-value { font-size: 1.8rem; font-weight: bold; color: #e94560; }
+        .stat-label { font-size: 0.9rem; color: #95a5a6; }
+        h2 { font-size: 1rem; color: #34495e; margin-top: 0; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>F1 Analytics</h1>
+        <div class="stat-box">
+            <div class="stat-label">Giri Selezionati</div>
+            <div id="stat-count" class="stat-value">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Tempo Medio (s)</div>
+            <div id="stat-avg-time" class="stat-value">0.000</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Pilota più veloce</div>
+            <div id="stat-best-driver" class="stat-value">-</div>
+        </div>
+        <p style="font-size: 0.8rem; color: #bdc3c7;">Usa il mouse per fare "brushing" sui grafici e analizzare i dati.</p>
     </div>
 
-  </body>
+   <div class="main-content">
+    <div class="chart-card">
+        <h2>PCA & Clustering (Similiarità Giri)</h2>
+        <div id="scatterplot-container"></div>
+    </div>
+    <div class="chart-card">
+        <h2>Parallel Coordinates (Sectors Analysis)</h2>
+        <div id="parallel-container"></div>
+    </div>
+    <div class="chart-card">
+        <h2>Lap Time Delta (Andamento Gara)</h2>
+        <div id="laptime-container"></div>
+    </div>
+    <div class="chart-card">
+        <h2>Strategy Bar Chart (Compound Usage)</h2>
+        <div id="strategy-container"></div>
+    </div>
+</div>
+</body>
 </html>
