@@ -1,72 +1,113 @@
 import * as d3 from 'd3';
 
 let lines;
+let colorScale = d3.scaleOrdinal()
+    .domain(["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"])
+    .range(["#ff3333", "#ffff00", "#ffffff", "#33cc33", "#0066ff"]);
 
 export function drawParallelCoordinates(data, containerSelector, onBrushSelection) {
     d3.select(containerSelector).selectAll("*").remove();
 
-   const width = 600; 
-    const height = 400; // Leggermente più basso per compattezza
-    const margin = { top: 30, right: 30, bottom: 40, left: 40 };
+    // 1. Setup Dimensioni (Molto largo per evitare spaghetti)
+    const width = 1100; 
+    const height = 450;
+    const margin = { top: 60, right: 50, bottom: 40, left: 50 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
 
-    // DIMENSIONI AGGIORNATE con i nomi del CSV
-    const dimensions = ["S1_Delta", "S2_Delta", "S3_Delta", "LapTime_Sec"];
+    const dimensions = ["S1_Delta", "S2_Delta", "S3_Delta", "SpeedST", "TyreLife", "LapTime_Sec"];
 
     const svg = d3.select(containerSelector)
-        .append("svg").attr("width", width).attr("height", height)
-        .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        .append("svg")
+        .attr("viewBox", `0 0 ${width} ${height}`)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Crea le scale per ogni dimensione
+    // 2. Scale
     const y = {};
-    for (let dim of dimensions) {
+    dimensions.forEach(dim => {
         y[dim] = d3.scaleLinear()
-            .domain(d3.extent(data, d => d[dim]))
-            .range([height - margin.top - margin.bottom, 0])
+            .domain(d3.extent(data, d => +d[dim]))
+            .range([innerHeight, 0])
             .nice();
-    }
+    });
 
     const x = d3.scalePoint()
-        .range([0, width - margin.left - margin.right])
-        .padding(1)
+        .range([0, innerWidth])
+        .padding(0.4)
         .domain(dimensions);
 
-    // Generatore di linee
-    const path = d => d3.line()(dimensions.map(p => [x(p), y[p](d[p])]));
+    const lineGenerator = d3.line()
+        .curve(d3.curveMonotoneX) 
+        .x(d => d[0])
+        .y(d => d[1]);
 
-    // Disegna le linee (Laps)
-    lines = svg.selectAll("path.lap-line")
+    const path = d => lineGenerator(dimensions.map(p => [x(p), y[p](d[p])]));
+
+    // 3. Disegno Linee (Stato Iniziale)
+    lines = svg.append("g")
+        .attr("class", "lines-group")
+        .selectAll("path")
         .data(data).enter().append("path")
-        .attr("class", "lap-line")
         .attr("d", path)
         .style("fill", "none")
-        .style("stroke", "#1f77b4")
-        .style("opacity", 0.4)
-        .style("stroke-width", "1.5px");
+        .style("stroke", d => colorScale(d.Compound ? d.Compound.toUpperCase() : "MEDIUM"))
+        .style("opacity", 0.25)
+        .style("stroke-width", "1.2px")
+        .style("pointer-events", "none");
 
-    // Aggiungi gli assi
-    svg.selectAll("myAxis")
+    // 4. Assi Eleganti
+    const axes = svg.selectAll(".axis")
         .data(dimensions).enter()
         .append("g")
-        .attr("transform", d => `translate(${x(d)})`)
-        .each(function(d) { d3.select(this).call(d3.axisLeft().scale(y[d])); })
-        .append("text")
-        .style("text-anchor", "middle")
-        .attr("y", -10)
-        .text(d => d)
-        .style("fill", "black")
-        .style("font-weight", "bold");
+        .attr("transform", d => `translate(${x(d)})`);
 
-    // Implementiamo il Brush coordinato (Trigger)
+    axes.each(function(d) {
+        d3.select(this).call(d3.axisLeft(y[d]).ticks(8).tickSize(-5));
+    });
+
+    axes.append("text")
+        .style("text-anchor", "middle")
+        .attr("y", -25)
+        .text(d => d.replace("_Delta", ""))
+        .style("fill", "#1a1a2e")
+        .style("font-size", "14px")
+        .style("font-weight", "800");
+
+    // 5. Brush Ottimizzato (Fix per i bug)
     const brush = d3.brush()
-        .extent([[0, 0], [width - margin.left - margin.right, height - margin.top - margin.bottom]])
-        .on("brush end", (event) => {
+        .extent([[0, 0], [innerWidth, innerHeight]])
+        .on("brush", (event) => {
+            const selection = event.selection;
+            if (!selection) return;
+
+            const [[x0, y0], [x1, y1]] = selection;
+
+            // Filtro veloce senza attivare handleSelection ad ogni pixel
+            lines.style("opacity", d => {
+                const active = dimensions.some(dim => {
+                    const cx = x(dim);
+                    const cy = y[dim](d[dim]);
+                    return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+                });
+                return active ? 1 : 0.02;
+            }).style("stroke-width", d => {
+                 const active = dimensions.some(dim => {
+                    const cx = x(dim);
+                    const cy = y[dim](d[dim]);
+                    return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+                });
+                return active ? "2.5px" : "1px";
+            });
+        })
+        .on("end", (event) => {
             if (!event.selection) {
-                if (onBrushSelection) onBrushSelection([]); 
+                lines.style("opacity", 0.25).style("stroke-width", "1.2px");
+                if (onBrushSelection) onBrushSelection([]);
                 return;
             }
+            // Solo alla fine del brush inviamo i dati al resto della dashboard
             const [[x0, y0], [x1, y1]] = event.selection;
-            
-            // Filtra i dati: un giro è selezionato se almeno uno dei suoi punti nei settori cade nel rettangolo
             const selected = data.filter(d => {
                 return dimensions.some(dim => {
                     const cx = x(dim);
@@ -80,12 +121,18 @@ export function drawParallelCoordinates(data, containerSelector, onBrushSelectio
     svg.append("g").attr("class", "brush").call(brush);
 }
 
-// Funzione di Highlight chiamata dagli altri grafici
 export function highlightParallel(selectedData) {
     if (!lines) return;
+    const isFullSet = selectedData.length === 0;
     const selectedSet = new Set(selectedData);
-    lines.transition().duration(200)
-         .style("stroke", d => selectedSet.has(d) ? "#e31a1c" : "#ccc") // Rosso per i selezionati
-         .style("opacity", d => selectedSet.has(d) ? 0.8 : 0.03)
-         .style("stroke-width", d => selectedSet.has(d) ? "2.5px" : "1px");
+    
+    // Usiamo una transizione fluida solo per l'highlight esterno
+    lines.interrupt() 
+        .transition().duration(200)
+        .style("opacity", d => isFullSet ? 0.25 : (selectedSet.has(d) ? 1 : 0.02))
+        .style("stroke-width", d => isFullSet ? "1.2px" : (selectedSet.has(d) ? "2.8px" : "0.8px"))
+        .style("stroke", d => {
+            if (isFullSet) return colorScale(d.Compound ? d.Compound.toUpperCase() : "MEDIUM");
+            return selectedSet.has(d) ? colorScale(d.Compound ? d.Compound.toUpperCase() : "MEDIUM") : "#ddd";
+        });
 }

@@ -1,0 +1,112 @@
+import fastf1
+import pandas as pd
+import os
+import numpy as np
+
+# Configurazione cache
+if not os.path.exists('cache'):
+    os.makedirs('cache')
+fastf1.Cache.enable_cache('cache') 
+
+def get_full_season_data(year=2024): # Cambiato a 2024 per test (2025 ancora in corso)
+    try:
+        schedule = fastf1.get_event_schedule(year)
+    except Exception as e:
+        print(f"Errore nel download del calendario: {e}")
+        return pd.DataFrame()
+    
+    # Escludiamo i test pre-stagionali
+    official_events = schedule[schedule['EventFormat'] != 'testing']
+    
+    all_races_data = []
+
+    print(f"--- INIZIO DOWNLOAD STAGIONE {year} ---")
+
+    for i, event in official_events.iterrows():
+        round_num = event['RoundNumber']
+        event_name = event['EventName']
+        
+        # Saltiamo round futuri se l'anno è quello corrente
+        if event['Session5DateUtc'] > pd.Timestamp.now(tz='UTC'):
+            continue
+
+        print(f"\nProcessing Round {round_num}: {event_name}")
+        
+        try:
+            session = fastf1.get_session(year, round_num, 'R')
+            # Carichiamo tutto per avere i dati completi
+            session.load(laps=True, weather=True, telemetry=True)
+            
+            laps = session.laps
+            if laps.empty:
+                continue
+
+            # --- SELEZIONE COLONNE AVANZATA ---
+            cols_to_keep = [
+                'Driver', 'Team', 'LapNumber', 'LapTime', 'LapStartTime', 'Time',
+                'Sector1Time', 'Sector2Time', 'Sector3Time', 
+                'SpeedI1', 'SpeedI2', 'SpeedST', 'SpeedFL', # Velocità ai micro-settori
+                'Compound', 'TyreLife', 'FreshTyre', 'Stint', 
+                'IsAccurate', 'IsPersonalBest', 'Position', 'TrackStatus'
+            ]
+            
+            existing_cols = [c for c in cols_to_keep if c in laps.columns]
+            laps_subset = laps[existing_cols].copy()
+
+            # --- FEATURE ENGINEERING ---
+            # 1. Convertiamo i tempi in secondi
+            for col in ['LapTime', 'Sector1Time', 'Sector2Time', 'Sector3Time']:
+                laps_subset[f'{col}_Sec'] = laps_subset[col].dt.total_seconds()
+
+            # 2. Calcolo del distacco dal leader (GapToLeader)
+            # Utile per capire se il pilota è in aria pulita
+            laps_subset['GapToLeader'] = laps_subset['Time'] - laps_subset['Time'].min()
+            laps_subset['GapToLeader'] = laps_subset['GapToLeader'].dt.total_seconds()
+
+            # 3. Identificazione Safety Car (TrackStatus '4' o '6' spesso indicano SC/VSC)
+            # Aiuta a filtrare i giri lenti che non dipendono dal degrado
+            laps_subset['IsSC'] = laps_subset['TrackStatus'].apply(lambda x: 1 if any(s in str(x) for s in ['4', '6', '7']) else 0)
+
+            # Aggiungiamo metadati
+            laps_subset['RoundNumber'] = round_num
+            laps_subset['EventName'] = event_name
+            laps_subset['Year'] = year
+
+            # --- MERGE METEO (Arricchito) ---
+            weather = session.weather_data
+            laps_subset['LapStartTime'] = pd.to_timedelta(laps_subset['LapStartTime'])
+            weather['Time'] = pd.to_timedelta(weather['Time'])
+
+            merged_data = pd.merge_asof(
+                laps_subset.sort_values('LapStartTime'),
+                weather[['Time', 'AirTemp', 'TrackTemp', 'Humidity', 'Pressure', 'Rainfall', 'WindSpeed']],
+                left_on='LapStartTime',
+                right_on='Time',
+                direction='nearest'
+            )
+
+            all_races_data.append(merged_data)
+            print(f"   -> OK: {len(merged_data)} giri con telemetria e meteo.")
+
+        except Exception as e:
+            print(f"   -> ERRORE nel Round {round_num}: {e}")
+
+    if all_races_data:
+        final_df = pd.concat(all_races_data, ignore_index=True)
+        # Rimuoviamo colonne doppione dal merge
+        if 'Time_y' in final_df.columns: final_df.drop(columns=['Time_y'], inplace=True)
+        return final_df
+    return pd.DataFrame()
+
+if __name__ == "__main__":
+    ANNO = 2024 # Esempio su stagione completa
+    df = get_full_season_data(ANNO)
+    
+    if not df.empty:
+        # Pulizia finale: Rinominiamo Time_x se esiste
+        if 'Time_x' in df.columns: df.rename(columns={'Time_x': 'SessionTime'}, inplace=True)
+        
+        filename = f"f1_{ANNO}_enhanced_data.csv"
+        df.to_csv(filename, index=False)
+        print(f"\nFile salvato con successo: {filename}")
+        print(f"Nuove variabili incluse: GapToLeader, IsSC, SpeedI1/I2 (Settori)")

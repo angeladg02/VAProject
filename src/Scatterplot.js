@@ -1,6 +1,6 @@
 import * as d3 from 'd3';
 
-let circles; // Variabile globale al modulo per poter fare l'highlight dall'esterno
+let circles; 
 
 export function drawScatterPlot(data, containerSelector, onBrushSelection) {
     d3.select(containerSelector).selectAll("*").remove();
@@ -20,6 +20,45 @@ export function drawScatterPlot(data, containerSelector, onBrushSelection) {
     const compounds = ["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"];
     const compoundColors = ["#ff3333", "#ffff00", "#ffffff", "#33cc33", "#0066ff"];
     const colorScale = d3.scaleOrdinal().domain(compounds).range(compoundColors);
+
+    // --- AGGIUNTA QUADRANTI ---
+    // Linea Orizzontale (Asse X allo zero di Y)
+    svg.append("line")
+        .attr("x1", 0)
+        .attr("x2", innerWidth)
+        .attr("y1", yScale(0))
+        .attr("y2", yScale(0))
+        .attr("stroke", "#ccc")
+        .attr("stroke-dasharray", "4")
+        .attr("stroke-width", 1);
+
+    // Linea Verticale (Asse Y allo zero di X)
+    svg.append("line")
+        .attr("x1", xScale(0))
+        .attr("x2", xScale(0))
+        .attr("y1", 0)
+        .attr("y2", innerHeight)
+        .attr("stroke", "#ccc")
+        .attr("stroke-dasharray", "4")
+        .attr("stroke-width", 1);
+
+    // Etichette dei Quadranti (Opzionali, per guidare l'utente)
+    const labels = [
+        { x: innerWidth - 60, y: 20, txt: "Q1: Inefficienza" },
+        { x: 10, y: 20, txt: "Q2: Performance instabile" },
+        { x: 10, y: innerHeight - 10, txt: "Q3: Ottimizzazione" },
+        { x: innerWidth - 60, y: innerHeight - 10, txt: "Q4: Conservativo" }
+    ];
+
+    svg.selectAll(".quad-label")
+        .data(labels).enter().append("text")
+        .attr("x", d => d.x)
+        .attr("y", d => d.y)
+        .attr("fill", "#999")
+        .style("font-size", "10px")
+        .style("font-style", "italic")
+        .text(d => d.txt);
+    // ---------------------------
 
     // Assi
     svg.append("g").attr("transform", `translate(0,${innerHeight})`).call(d3.axisBottom(xScale));
@@ -83,7 +122,6 @@ export function drawScatterPlot(data, containerSelector, onBrushSelection) {
     svg.append("g").attr("class", "brush").call(brush);
 }
 
-// Funzione richiamata da index.js quando si usa un altro grafico
 export function highlightScatter(selectedData) {
     if (!circles) return;
     const selectedSet = new Set(selectedData);

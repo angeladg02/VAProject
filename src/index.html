@@ -32,6 +32,29 @@
             <div id="stat-best-driver" class="stat-value">-</div>
         </div>
         <p style="font-size: 0.8rem; color: #bdc3c7;">Usa il mouse per fare "brushing" sui grafici e analizzare i dati.</p>
+
+        <div class="stat-box" id="weather-box" style="border-left-color: #3498db;">
+     <div class="stat-label">Condizioni Meteo</div>
+     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+        <div>
+            <span class="stat-label">Pista:</span>
+            <div id="stat-track-temp" style="font-size: 1.2rem; font-weight: bold; color: #f39c12;">-°C</div>
+        </div>
+        <div>
+            <span class="stat-label">Aria:</span>
+            <div id="stat-air-temp" style="font-size: 1.2rem; font-weight: bold; color: #3498db;">-°C</div>
+        </div>
+        <div id="stat-rain-icon" style="font-size: 1.5rem;">☀️</div>
+       </div>
+        </div>  
+
+       <div class="stat-box" style="border-left-color: #2ecc71;">
+    <div class="stat-label">Modello Degrado Gomme</div>
+    <div id="stat-degradation" class="stat-value" style="color: #2ecc71;">0.0</div>
+    <div class="stat-label">ms / giro (Trend Line)</div>
+</div>
+    </div>
+
     </div>
 
    <div class="main-content">
@@ -50,6 +73,10 @@
     <div class="chart-card">
         <h2>Strategy Bar Chart (Compound Usage)</h2>
         <div id="strategy-container"></div>
+    </div>
+    <div class="chart-card">
+        <h2>Consistenza (Box Plot)</h2>
+        <div id="boxplot-container" style="display: flex; justify-content: center;"></div>
     </div>
 </div>
 </body>
