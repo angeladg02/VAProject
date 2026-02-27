@@ -50,18 +50,17 @@ function renderChart() {
         .style("font-size", "18px").style("color", "#e94560")
         .on("click", toggleMode);
 
-    // 2. CONTENITORE PER IL MENU A TENDINA (Altezza fissa minima per evitare salti)
+    // 2. CONTENITORE PER IL MENU A TENDINA
     containerDiv.append("div")
         .attr("class", "dropdown-container")
         .style("text-align", "center")
         .style("margin-bottom", "5px")
-        .style("min-height", "28px"); // Spazio esatto per una riga sola!
+        .style("min-height", "28px"); 
 
-    // 3. CALCOLO SPAZIO SVG RESPONSIVE
+    // 3. CALCOLO SPAZIO SVG RESPONSIVE (Margine destro a 50 per far leggere "Media")
     const width = containerDiv.node().clientWidth || 400;
-    // Togliamo solo 65px fissi per header e menu a tendina (il grafico ora respira!)
     const height = (containerDiv.node().clientHeight || 200) - 65; 
-    const margin = { top: 10, right: 20, bottom: 30, left: 40 };
+    const margin = { top: 10, right: 50, bottom: 30, left: 40 }; 
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -95,7 +94,45 @@ function renderChart() {
         .x(d => x(+d.LapNumber))
         .y(d => y(getYValue(d)));
 
-    // DISEGNO LINEE
+    // --- CALCOLO E DISEGNO DELLA MEDIA DEL GRUPPO (BASELINE) ---
+    if (currentMode === 'LAP_TIME') {
+        const meanData = Array.from(d3.group(allData, d => +d.LapNumber), ([lap, entries]) => {
+            return {
+                LapNumber: lap,
+                LapTime_Sec: d3.mean(entries, d => +d.LapTime_Sec) 
+            };
+        }).sort((a, b) => a.LapNumber - b.LapNumber);
+
+        const meanLineGenerator = d3.line()
+            .x(d => x(d.LapNumber))
+            .y(d => y(d.LapTime_Sec));
+
+        svg.append("path")
+            .datum(meanData)
+            .attr("class", "mean-line")
+            .attr("d", meanLineGenerator)
+            .style("fill", "none")
+            .style("stroke", "#7f8c8d") 
+            .style("stroke-width", 2)
+            .style("stroke-dasharray", "5,5") 
+            .style("opacity", 0.6);
+
+        const lastPoint = meanData[meanData.length - 1];
+        if(lastPoint) {
+            svg.append("text")
+               .attr("class", "mean-label")
+               .attr("x", x(lastPoint.LapNumber) + 5)
+               .attr("y", y(lastPoint.LapTime_Sec))
+               .text("Media")
+               .style("font-size", "11px")
+               .style("fill", "#7f8c8d")
+               .style("font-weight", "bold")
+               .style("alignment-baseline", "middle");
+        }
+    }
+    // --------------------------------------------------------
+
+    // DISEGNO LINEE PILOTI
     lapLines = svg.selectAll(".driver-line")
         .data(dataByDriver).enter().append("path")
         .attr("class", "driver-line")
@@ -105,7 +142,7 @@ function renderChart() {
         .style("stroke-width", 1.5)
         .style("opacity", 0.2);
 
-    // DISEGNO PUNTI
+    // DISEGNO PUNTI PILOTI
     lapPoints = svg.selectAll(".lap-point")
         .data(allData).enter().append("circle")
         .attr("class", "lap-point")
@@ -119,7 +156,7 @@ function renderChart() {
 
     lapPoints.append("title").text(d => `${d.Driver} - Lap ${d.LapNumber} - ${currentMode === 'LAP_TIME' ? d.LapTime_Sec + 's' : 'Pos: ' + d.Position}`);
 
-    // BRUSH
+    // BRUSH ADATTIVO
     const brush = d3.brush().extent([[0, 0], [innerWidth, innerHeight]])
         .on("brush end", (event) => {
             if (!event.selection) { 
@@ -157,7 +194,7 @@ function updateVisuals() {
             if (isFullSet) return 0.2; 
             return d[0] === currentlyViewedDriver ? 0.9 : 0.02; 
         })
-        .style("stroke", d => (!isFullSet && d[0] === currentlyViewedDriver) ? "#2c3e50" : "#bdc3c7")
+        .style("stroke", d => (!isFullSet && d[0] === currentlyViewedDriver) ? "#e94560" : "#bdc3c7")
         .style("stroke-width", d => (!isFullSet && d[0] === currentlyViewedDriver) ? 2.5 : 1.5);
 
     lapPoints.transition().duration(400)
@@ -169,37 +206,32 @@ function updateVisuals() {
         .style("stroke", d => (!isFullSet && d.Driver === currentlyViewedDriver) ? "#000" : "none");
 }
 
-// NUOVA FUNZIONE: Genera e gestisce il menu a tendina
 function renderDropdown() {
     const container = containerDiv.select(".dropdown-container");
     
-    // Se non ci sono piloti filtrati (overview) rimuovi la tendina
     if (currentSelectedDrivers.length === 0) {
         container.selectAll("select").remove();
         return;
     }
 
-    // Seleziona o crea il tag <select>
     let select = container.select("select");
     if (select.empty()) {
         select = container.append("select")
             .attr("class", "driver-dropdown")
             .style("padding", "4px 12px")
             .style("border-radius", "6px")
-            .style("border", "1px solid #e94560") // Bordo col colore di accento
-            .style("background-color", "#1a1a2e") // Colore scuro della sidebar
+            .style("border", "1px solid #e94560") 
+            .style("background-color", "#1a1a2e") 
             .style("color", "white")
             .style("font-weight", "bold")
             .style("cursor", "pointer")
             .style("outline", "none")
             .on("change", function() {
-                // Quando l'utente sceglie una voce dal menu, aggiorna il grafico
                 currentlyViewedDriver = d3.select(this).property("value");
                 updateVisuals();
             });
     }
 
-    // Popola le <option> dentro al <select>
     const options = select.selectAll("option")
         .data(currentSelectedDrivers, d => d);
 
@@ -211,29 +243,27 @@ function renderDropdown() {
         .attr("value", d => d)
         .text(d => `Analisi Pilota: ${d}`);
 
-    // Forza il menu a tendina a mostrare il pilota attualmente attivo
     select.property("value", currentlyViewedDriver);
 }
 
 export function highlightLapTime(selectedData) {
     if (!lapPoints) return;
     
-    // Se selezioniamo "tutto" o "niente", torniamo alla visualizzazione globale pulita
+    // Controlla se abbiamo selezionato tutto o niente
     const isFullSet = selectedData.length === 0 || selectedData.length === allData.length;
     
     if (isFullSet) {
         currentSelectedDrivers = [];
         currentlyViewedDriver = null;
-        renderDropdown(); // Rimuove la tendina
+        renderDropdown(); 
     } else {
         const newSelectedDrivers = Array.from(new Set(selectedData.map(d => d.Driver))).sort();
         currentSelectedDrivers = newSelectedDrivers;
         
-        // Se il pilota che stavamo guardando prima non è nella nuova selezione, passiamo al primo della nuova lista
         if (!currentSelectedDrivers.includes(currentlyViewedDriver)) {
             currentlyViewedDriver = currentSelectedDrivers[0];
         }
-        renderDropdown(); // Aggiorna le voci della tendina
+        renderDropdown(); 
     }
     updateVisuals(); 
 }
@@ -253,36 +283,18 @@ export function calculateRegression(selectedData) {
 export function drawDegradationLine(containerSelector, selectedData, data) {
     const container = d3.select(containerSelector);
     const svg = container.select("g");
+    
+    // Puliamo sempre eventuali linee di regressione vecchie
     svg.selectAll(".regression-line").remove();
+
+    // Se non c'è una selezione specifica, non calcoliamo nulla
+    if (!selectedData || selectedData.length < 2 || selectedData.length === data.length) {
+        return null;
+    }
 
     const regression = calculateRegression(selectedData);
     if (!regression) return null;
 
-    if (currentMode === 'POSITION') {
-        return regression.slope * 1000; 
-    }
-
-    const width = container.node().clientWidth || 400;
-    const height = (container.node().clientHeight || 200) - 65;
-    const margin = { top: 10, right: 20, bottom: 30, left: 40 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
-
-    const scaleX = d3.scaleLinear().domain(d3.extent(data, d => +d.LapNumber)).range([0, innerWidth]);
-    const scaleY = d3.scaleLinear().domain(d3.extent(data, d => +d.LapTime_Sec)).range([innerHeight, 0]);
-
-    const minLap = d3.min(selectedData, d => +d.LapNumber);
-    const maxLap = d3.max(selectedData, d => +d.LapNumber);
-
-    const lineData = [
-        { lap: minLap, time: regression.slope * d3.min(selectedData, d => +d.TyreLife) + regression.intercept },
-        { lap: maxLap, time: regression.slope * d3.max(selectedData, d => +d.TyreLife) + regression.intercept }
-    ];
-
-    svg.append("path")
-        .datum(lineData).attr("class", "regression-line")
-        .attr("d", d3.line().x(d => scaleX(d.lap)).y(d => scaleY(d.time)))
-        .attr("stroke", "#000").attr("stroke-width", 2).attr("fill", "none").attr("stroke-dasharray", "4,4");
-
-    return regression.slope * 1000;
+    // RITORNIAMO IL VALORE PER LA SIDEBAR (ms/giro), MA NON DISEGNIAMO PIÙ LA LINEA SUL GRAFICO!
+    return regression.slope * 1000; 
 }
