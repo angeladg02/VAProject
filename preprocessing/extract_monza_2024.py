@@ -38,7 +38,7 @@ SESSION    = "R"         # R = Race
 OUTPUT_DIR = "./data"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-fastf1.Cache.enable_cache("./f1_cache")   # evita di riscaricare ogni volta
+#fastf1.Cache.enable_cache("./f1_cache")   # evita di riscaricare ogni volta
 
 
 # ─────────────────────────────────────────────
@@ -281,6 +281,10 @@ stints_df["IsOutlier"] = stints_df["DegradationZScore"].abs() > 1.5
 stints_df.to_csv(
     os.path.join(OUTPUT_DIR, "stints_features.csv"), index=False
 )
+stints_df.to_json(
+    os.path.join(OUTPUT_DIR, "stints_features.json"), index=False
+)
+
 print(f"  ✓ {len(stints_df)} stint totali")
 print(f"  Compound:\n{stints_df['Compound'].value_counts().to_string()}")
 print(f"  Outlier rilevati: {stints_df['IsOutlier'].sum()}")
