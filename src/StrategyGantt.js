@@ -40,9 +40,8 @@ export function drawStrategyGantt(rawData, containerId, callbacks) {
     const innerHeight = height - margin.top - margin.bottom;
 
     const svg = container.append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", `0 0 ${width} ${height}`) 
+        .attr("width", "100%")
+        .attr("height", "100%")
         .style("display", "block");
 
     // 3. DEFINIZIONE GRADIENTI PER DEGRADO GOMMA

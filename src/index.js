@@ -31,40 +31,75 @@ function initDashboard() {
 
     //for user interactions, modify here:
     const callbacks = {
-        //if user clicks on stints (so on the Gantt chart)
         onStintClick: (selectedStints) => {
-            //when the user selects a stint, we draw the linechart for that
-            drawLineChart(rawLapsData, "#line-chart", {}, selectedStints);
             
-            // Opzionale: puoi aggiornare anche il PCP per evidenziare i giri dello stint selezionato!
-            //drawParallelCoordinates(rawLapsData, "#pcp-chart", {}, selectedStints);
+            // Sincronizza tutti e 4 i grafici passandogli l'array degli stint selezionati!
+            drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
+            drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
+            drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
+            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
 
-            //to update the sidebar
-            /*
+            // Aggiorna il pannello Analytics nella Sidebar
             const panel = document.querySelector("#analytics-panel");
+            
             if (selectedStints.length === 1) {
                 panel.innerHTML = `
-                    <h3>Dettaglio Stint</h3>
+                    <h3 style="color: #00ffcc;">Dettaglio Stint</h3>
                     <p>Pilota: <strong>${selectedStints[0].Driver}</strong></p>
-                    <p>Compound: ${selectedStints[0].Compound}</p>
-                    <p>Degrado: ${(+selectedStints[0].DegradationSlope).toFixed(3)} s/giro</p>
+                    <p>Mescola: <strong style="color: ${selectedStints[0].Compound === 'SOFT' ? '#e10600' : selectedStints[0].Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${selectedStints[0].Compound}</strong></p>
+                    <p>Giri: ${selectedStints[0].LapStart} - ${selectedStints[0].LapEnd}</p>
+                    <p>Degrado: <strong>${(+selectedStints[0].DegradationSlope).toFixed(3)} s/giro</strong></p>
                 `;
             } else if (selectedStints.length > 1) {
+                const avgDeg = d3.mean(selectedStints, s => +s.DegradationSlope) || 0;
                 const listItems = selectedStints.map(s => 
-                    `<li><strong>${s.Driver}</strong> (${s.Compound}): ${(+s.DegradationSlope).toFixed(3)} s/giro</li>`
+                    `<li><strong>${s.Driver}</strong> (${s.Compound}): ${(+s.DegradationSlope).toFixed(3)} s/l</li>`
                 ).join(""); 
+                
                 panel.innerHTML = `
-                    <h3>Analisi Comparata Multipla</h3>
-                    <p>Confronto degrado:</p>
-                    <ul>${listItems}</ul>
+                    <h3 style="color: #00ffcc;">Analisi Comparata (${selectedStints.length} Stint)</h3>
+                    <p>Degrado Medio: <strong>${avgDeg.toFixed(3)} s/giro</strong></p>
+                    <ul style="padding-left: 20px; font-size: 0.9rem;">${listItems}</ul>
                 `;
             } else {
                 panel.innerHTML = `<p>Seleziona gli stint sul Gantt o i dati sulla PCA per aggiornare le statistiche.</p>`;
             }
-                */
         },
 
-        //if the user clicks on the pistops on the Gantt chart
+        // --- NUOVA INTERAZIONE: DAL PARALLEL COORDINATES AL RESTO ---
+        onPCPBrush: (activeStints) => {
+            if (activeStints.length === 0) {
+                // Resettiamo tutti i grafici se si cancella il filtro
+                drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
+                drawLineChart(rawLapsData, "#line-chart", callbacks, []);
+                drawPCAChart(pcaData, "#pca-chart", callbacks, []);
+                document.querySelector("#analytics-panel").innerHTML = `<p>Seleziona i dati sulla PCA per aggiornare le statistiche.</p>`;
+                return;
+            }
+
+            // Mappiamo i dati aggregati provenienti dal PCP sui veri Stint del dataset
+            const selectedStints = stintsData.filter(stint => {
+                return activeStints.some(active => 
+                    active.Driver === stint.Driver && 
+                    // Controlla l'intersezione matematica per trovare lo stint corrispondente
+                    Math.max(active.LapStart, stint.LapStart) <= Math.min(active.LapEnd, stint.LapEnd)
+                );
+            });
+
+            // Aggiorna gli altri 3 grafici
+            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
+            drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
+            drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
+
+            // Aggiorna il pannello Analytics
+            const panel = document.querySelector("#analytics-panel");
+            panel.innerHTML = `
+                <h3 style="color: #00ffcc;">Filtro Multi-dimensionale</h3>
+                <p>Stint filtrati: <strong>${selectedStints.length}</strong></p>
+                <p style="font-size: 0.85rem; color: #888;">Questi stint rispettano i parametri di efficienza dei settori o velocità scelti nel grafico in basso.</p>
+            `;
+        },
+        
         onPitClick: (pitData) => { /* ... */ }
     };
     //draw the gantt chart

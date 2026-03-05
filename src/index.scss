@@ -109,9 +109,13 @@ body {
 .viz-card .chart-container {
     flex: 1;
     position: relative;
-    min-height: 0; /* Lascia che Flexbox decida l'altezza incastrandolo nella card! */
+    min-height: 0; 
     min-width: 0;
-    overflow: hidden; /* Taglia via qualsiasi cosa provi a uscire dalla card */
+    overflow: hidden; /* FONDAMENTALE: Taglia via qualsiasi cosa provi a uscire dalla card scura */
+}
+
+.viz-card #view-a {
+    height: 500px;
 }
 
 /* 2. Regola speciale SOLO per il Gantt Chart */

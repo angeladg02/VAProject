@@ -10,25 +10,65 @@ const COMPOUND_COLORS = {
 };
 
 export function drawParallelCoordinates(rawData, containerId, callbacks, selectedStints = []) {
-    // 1. PULIZIA E PREPARAZIONE DATI
-    const data = rawData.map(d => ({
-        Driver: d.Driver || "Unknown",
-        LapNumber: +d.LapNumber || 0,
-        LapTime: +d.LapTimeSeconds || 0,
-        Sector1Time: +d.Sector1Seconds || 0,
-        Sector2Time: +d.Sector2Seconds || 0,
-        Sector3Time: +d.Sector3Seconds || 0,
-        TyreLife: +d.TyreLife || 0,
-        Compound: d.Compound || "UNKNOWN",
-        TrackTemp: +d.TrackTemp || 0,
-        SpeedST: +d.SpeedST || 0
-    })).filter(d => d.LapTime > 0 && d.Sector1Time > 0); // Filtra giri invalidi o out-lap senza tempi
+    // 1. AGGREGAZIONE DATI (Da Giri singoli a Medie per Stint)
+    const stintsMap = new Map();
+    let currentStint = null;
+    let prevLap = null;
 
-    if (!data || data.length === 0) return;
+    // Ordina i dati per pilota e numero di giro
+    const sortedData = rawData.slice().sort((a,b) => d3.ascending(a.Driver, b.Driver) || d3.ascending(+a.LapNumber, +b.LapNumber));
 
-    // Rimuoviamo gli outlier (es. giri di pit stop lentissimi) per non schiacciare le scale
-    const p95Lap = d3.quantile(data.map(d => d.LapTime).sort(d3.ascending), 0.95);
-    const validData = data.filter(d => d.LapTime <= p95Lap);
+    sortedData.forEach(d => {
+        const lapNum = +d.LapNumber;
+        const tyreLife = +d.TyreLife;
+        
+        // Crea un nuovo stint se: cambia pilota, gomma più nuova (pit stop), o cambia mescola
+        if (!currentStint || d.Driver !== prevLap.Driver || tyreLife < prevLap.TyreLife || d.Compound !== prevLap.Compound) {
+            if (currentStint && currentStint.laps.length > 0) stintsMap.set(currentStint.id, currentStint);
+            currentStint = {
+                id: `${d.Driver}_${lapNum}`,
+                Driver: d.Driver,
+                Compound: d.Compound || "UNKNOWN",
+                LapStart: lapNum,
+                LapEnd: lapNum,
+                laps: []
+            };
+        }
+        
+        currentStint.LapEnd = lapNum;
+        
+        // Aggiungiamo solo i giri validi (no outlap lentissimi) ai calcoli della media
+        if (+d.Sector1Seconds > 0 && +d.Sector2Seconds > 0 && +d.Sector3Seconds > 0) {
+            currentStint.laps.push({
+                s1: +d.Sector1Seconds,
+                s2: +d.Sector2Seconds,
+                s3: +d.Sector3Seconds,
+                speed: +d.SpeedST,
+                temp: +d.TrackTemp
+            });
+        }
+        prevLap = d;
+    });
+    if (currentStint && currentStint.laps.length > 0) stintsMap.set(currentStint.id, currentStint);
+
+    // Calcola le medie per ogni stint
+    const validData = Array.from(stintsMap.values()).map(s => {
+        return {
+            Driver: s.Driver,
+            Compound: s.Compound,
+            LapStart: s.LapStart,
+            LapEnd: s.LapEnd,
+            "Sector 1": d3.mean(s.laps, l => l.s1),
+            "Sector 2": d3.mean(s.laps, l => l.s2),
+            "Sector 3": d3.mean(s.laps, l => l.s3),
+            "SpeedST": d3.mean(s.laps, l => l.speed),
+            "Track Temp": d3.mean(s.laps, l => l.temp),
+            StintLength: s.laps.length
+        };
+    }).filter(d => d.StintLength > 2); // Escludiamo stint finti o brevissimi (meno di 3 giri)
+
+    if (!validData || validData.length === 0) return;
+    const hasSelection = selectedStints && selectedStints.length > 0;
 
     // 2. SETUP CONTENITORE
     const container = d3.select(containerId);
@@ -50,44 +90,28 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
     const g = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // 3. DEFINIZIONE DELLE DIMENSIONI (Assi)
-    const dimensions = [
-        "LapTime", "Sector1Time", "Sector2Time", "Sector3Time", 
-        "TyreLife", "Compound", "TrackTemp", "SpeedST"
-    ];
+    // 3. I NUOVI ASSI
+    const dimensions = ["Compound", "Sector 1", "Sector 2", "Sector 3", "SpeedST", "Track Temp"];
 
-    // 4. CREAZIONE DELLE SCALE PER OGNI ASSE
+    // 4. SCALE
     const y = {};
     dimensions.forEach(dim => {
         if (dim === "Compound") {
-            // Asse Categorico
             const compounds = Array.from(new Set(validData.map(d => d[dim])));
-            y[dim] = d3.scalePoint()
-                .domain(compounds)
-                .range([innerHeight, 0])
-                .padding(0.5);
-        } else if (dim === "LapTime") {
-            // Asse LapTime INVERTITO (tempi bassi/veloci in alto, tempi alti/lenti in basso)
-            y[dim] = d3.scaleLinear()
-                .domain(d3.extent(validData, d => d[dim]))
-                .range([0, innerHeight]); 
+            y[dim] = d3.scalePoint().domain(compounds).range([innerHeight, 0]).padding(0.5);
+        } else if (dim.includes("Sector")) {
+            // Per i Tempi: i valori bassi (i più veloci/migliori) vanno posizionati in alto!
+            y[dim] = d3.scaleLinear().domain(d3.extent(validData, d => d[dim])).range([0, innerHeight]); 
         } else {
-            // Assi Numerici standard (valori alti in alto)
-            y[dim] = d3.scaleLinear()
-                .domain(d3.extent(validData, d => d[dim]))
-                .range([innerHeight, 0]);
+            // Per Velocità e Temp: i valori più alti vanno in alto
+            y[dim] = d3.scaleLinear().domain(d3.extent(validData, d => d[dim])).range([innerHeight, 0]);
         }
     });
 
-    // Scala X per posizionare gli assi orizzontalmente
-    const x = d3.scalePoint()
-        .range([0, innerWidth])
-        .padding(0.5)
-        .domain(dimensions);
+    const x = d3.scalePoint().range([0, innerWidth]).padding(0.5).domain(dimensions);
 
-    // 5. DISEGNO DELLE LINEE (Giri)
+    // 5. DISEGNO LINEE
     const lineGenerator = d => d3.line()(dimensions.map(p => [x(p), y[p](d[p])]));
-
     const tooltip = d3.select("#tooltip");
 
     const lines = g.append("g")
@@ -100,48 +124,39 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         .style("fill", "none")
         .style("stroke", d => COMPOUND_COLORS[d.Compound] || COMPOUND_COLORS["UNKNOWN"])
         .style("stroke-width", 1)
-        .style("opacity", 0.15) // Opacità bassa di default come da specifiche
         .style("transition", "opacity 0.2s")
         .on("mouseover", function(event, d) {
-            d3.select(this)
-                .style("stroke-width", 3)
-                .style("opacity", 1)
-                .raise(); // Porta in primo piano
+            d3.select(this).style("stroke-width", 3).style("opacity", 1).raise();
             
             tooltip.classed("hidden", false)
                 .html(`
-                    <div style="margin-bottom:5px;"><strong>${d.Driver}</strong> - Lap ${d.LapNumber}</div>
-                    <div>Compound: <strong style="color:${COMPOUND_COLORS[d.Compound]}">${d.Compound}</strong></div>
-                    <div>Lap Time: ${d.LapTime.toFixed(3)}s</div>
-                    <div>Tyre Life: ${d.TyreLife}</div>
-                    <div>SpeedST: ${d.SpeedST} km/h</div>
+                    <div style="margin-bottom:5px;"><strong>${d.Driver}</strong> - ${d.Compound}</div>
+                    <div>Giri: ${d.LapStart} - ${d.LapEnd} (${d.StintLength} totali)</div>
+                    <div>Avg Sec 1: <strong>${d["Sector 1"].toFixed(3)}s</strong></div>
+                    <div>Avg Sec 2: <strong>${d["Sector 2"].toFixed(3)}s</strong></div>
+                    <div>Avg Sec 3: <strong>${d["Sector 3"].toFixed(3)}s</strong></div>
+                    <div>Avg Speed: <strong>${d["SpeedST"].toFixed(1)} km/h</strong></div>
+                    <div>Avg Temp: <strong>${d["Track Temp"].toFixed(1)} °C</strong></div>
                 `)
                 .style("left", (event.pageX + 15) + "px")
                 .style("top", (event.pageY - 28) + "px");
         })
         .on("mouseout", function() {
-            d3.select(this)
-                .style("stroke-width", 1)
-                .style("opacity", d => (isLineActive(d) ? 0.8 : 0.15)); // Ripristina l'opacità in base al brush
+            updateLines(); 
             tooltip.classed("hidden", true);
         });
 
-    // 6. DISEGNO DEGLI ASSI E BRUSHING
+    // 6. DISEGNO DEGLI ASSI E LABEL
     const axes = g.selectAll(".axis")
         .data(dimensions)
         .enter().append("g")
         .attr("class", "axis")
         .attr("transform", d => `translate(${x(d)},0)`)
-        .each(function(d) { 
-            // Disegna l'asse Y specifico per quella dimensione
-            d3.select(this).call(d3.axisLeft().scale(y[d]).ticks(5)); 
-        });
+        .each(function(d) { d3.select(this).call(d3.axisLeft().scale(y[d]).ticks(5)); });
 
-    // Colora i testi degli assi di bianco/grigio per il tema scuro
     axes.selectAll("text").style("fill", "#f5f5f5").style("font-size", "10px");
     axes.selectAll("path, line").style("stroke", "#888894");
 
-    // Aggiungi i titoli degli assi
     axes.append("text")
         .style("text-anchor", "middle")
         .attr("y", -15)
@@ -151,8 +166,8 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         .style("font-size", "11px")
         .style("cursor", "ew-resize");
 
-    // 7. LOGICA DI BRUSHING (Filtro multidimensionale)
-    const selections = new Map(); // Tiene traccia dei range selezionati su ogni asse
+    // 7. LOGICA DI BRUSHING MULTIPLO
+    const selections = new Map();
 
     axes.append("g")
         .attr("class", "brush")
@@ -165,11 +180,9 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
 
     function brushed({selection}, dim) {
         if (selection === null) {
-            selections.delete(dim); // Se clicchi fuori, rimuove il filtro per questo asse
+            selections.delete(dim);
         } else {
-            // Mappa i pixel del brush ai valori dei dati invertendo la scala
             if (dim === "Compound") {
-                // Per la scala categorica, calcola la vicinanza
                 const domain = y[dim].domain();
                 const range = domain.map(d => y[dim](d));
                 const selectedCompounds = domain.filter((d, i) => selection[0] <= range[i] && range[i] <= selection[1]);
@@ -178,16 +191,23 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
                 selections.set(dim, selection.map(y[dim].invert));
             }
         }
-        updateLines();
+        updateLines(true); 
+    }
+
+    // Identifica se questa linea è tra quelle cliccate negli altri grafici
+    function isStintSelected(d) {
+        if (!hasSelection) return false;
+        // Controlla se c'è overlap tra lo stint aggregato e gli stint passati dalla selezione
+        return selectedStints.some(s => s.Driver === d.Driver && Math.max(s.LapStart, d.LapStart) <= Math.min(s.LapEnd, d.LapEnd));
     }
 
     function isLineActive(d) {
-        // Controlla se una linea passa attraverso TUTTI i brush attivi
+        if (hasSelection && !isStintSelected(d)) return false;
+
         for (let [dim, sel] of selections) {
             if (dim === "Compound") {
                 if (!sel.includes(d[dim])) return false;
             } else {
-                // Gestisce il fatto che per alcuni assi la scala è invertita
                 const min = Math.min(sel[0], sel[1]);
                 const max = Math.max(sel[0], sel[1]);
                 if (d[dim] < min || d[dim] > max) return false;
@@ -196,17 +216,19 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         return true;
     }
 
-    function updateLines() {
+    function updateLines(isUserBrushing = false) {
         lines.style("opacity", d => {
-            if (selections.size === 0) return 0.15; // Nessun filtro
-            return isLineActive(d) ? 0.8 : 0.02; // Evidenzia chi passa il filtro, sbiadisce gli altri
+            if (selections.size === 0 && !hasSelection) return 0.25; // Opacità base leggibile
+            return isLineActive(d) ? 0.9 : 0.02; 
         })
-        .style("stroke-width", d => (selections.size > 0 && isLineActive(d) ? 2 : 1));
+        .style("stroke-width", d => ((selections.size > 0 || hasSelection) && isLineActive(d) ? 2.5 : 1));
 
-        // EVENTUALE TRIGGER PER ALTRE VISTE
-        // if (callbacks && callbacks.onPCPFilter) {
-        //     const activeData = validData.filter(isLineActive);
-        //     callbacks.onPCPFilter(activeData);
-        // }
+        // Se l'utente usa il brush del PCP, invia i dati aggregati a index.js
+        if (isUserBrushing && callbacks && callbacks.onPCPBrush) {
+            const activeStints = selections.size === 0 ? [] : validData.filter(isLineActive);
+            callbacks.onPCPBrush(activeStints);
+        }
     }
+
+    updateLines();
 }
