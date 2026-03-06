@@ -211,5 +211,51 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
                 .attr("opacity", 0.15)
                 .lower();
         });
+        // ... [codice esistente del ciclo forEach] ...
+
+    // CALCOLO DEL CROSSOVER POINT (se esattamente 2 stint sono selezionati)
+    if (selectedStints.length === 2) {
+        const s1 = selectedStints[0];
+        const s2 = selectedStints[1];
+
+        // y = m*x + q  =>  LapTime = DegradationSlope * Lap + q
+        const m1 = s1.DegradationSlope;
+        const mid1 = (s1.LapStart + s1.LapEnd) / 2;
+        const q1 = s1.AvgLapTime - (m1 * mid1);
+
+        const m2 = s2.DegradationSlope;
+        const mid2 = (s2.LapStart + s2.LapEnd) / 2;
+        const q2 = s2.AvgLapTime - (m2 * mid2);
+
+        // Se le rette non sono parallele, calcola l'intersezione
+        if (m1 !== m2) {
+            // mx1 + q1 = mx2 + q2 => x = (q2 - q1) / (m1 - m2)
+            const crossoverLap = (q2 - q1) / (m1 - m2);
+
+            // Disegna il marker solo se il crossover avviene in un giro futuro e sensato
+            if (crossoverLap > 0 && crossoverLap < 100) { 
+                const cx = xScale(crossoverLap);
+
+                // Disegna la linea verticale
+                plotArea.append("line")
+                    .attr("x1", cx)
+                    .attr("y1", 0)
+                    .attr("x2", cx)
+                    .attr("y2", innerHeight)
+                    .attr("stroke", "#ff00ff") // Colore magenta per risaltare
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "5,5");
+
+                // Disegna l'etichetta di testo
+                plotArea.append("text")
+                    .attr("x", cx + 8)
+                    .attr("y", 20)
+                    .attr("fill", "#ff00ff")
+                    .style("font-size", "14px")
+                    .style("font-weight", "bold")
+                    .text(`Crossover at Lap ${Math.round(crossoverLap)}`);
+            }
+        }
+    }
     }
 }

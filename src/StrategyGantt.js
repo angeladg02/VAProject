@@ -43,7 +43,21 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
     const svg = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .style("display", "block");
+        .style("display", "block")
+        .on("dblclick", function() {
+            // SVUOTA L'ARRAY GLOBALE AL DOPPIO CLICK
+            selectedStints = [];
+            
+            // Resetta i contorni di tutti gli stint
+            svg.selectAll(".stint-rect")
+                .attr("stroke", "#15151e")
+                .attr("stroke-width", 1.5);
+                
+            // Propaga l'array vuoto agli altri grafici per resettare la dashboard
+            if (callbacks && callbacks.onStintClick) {
+                callbacks.onStintClick(selectedStints);
+            }
+        });
 
     // 3. DEFINIZIONE GRADIENTI PER DEGRADO GOMMA
     const defs = svg.append("defs");
@@ -153,7 +167,8 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
             tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
         })
         .on("mouseout", function(event, d) {
-            const isSelected = selectedStints.find(s => s.StintID === d.StintID);
+            // FIX: Usiamo Driver e StintNumber invece di StintID
+            const isSelected = selectedStints.some(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
             d3.select(this).attr("stroke", isSelected ? "#00ff00" : "#15151e")
                            .attr("stroke-width", isSelected ? 3 : 1.5);
             tooltip.classed("hidden", true);
@@ -161,18 +176,22 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
         
         // INTERAZIONE: CLICK
         .on("click", function(event, d) {
-            const index = selectedStints.findIndex(s => s.StintID === d.StintID);
+            // FIX: Cerchiamo l'indice esatto usando Driver e StintNumber
+            const index = selectedStints.findIndex(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
+            
             if (index > -1) {
-                selectedStints.splice(index, 1); // Deseleziona
+                // SE ESISTE GIA': Lo rimuove (Deselezione)
+                selectedStints.splice(index, 1); 
             } else {
-                //if (selectedStints.length >= 2) selectedStints.shift(); // Max 2 per confronto
+                // SE NON ESISTE: Lo aggiunge (mantenendo un massimo di 2 stint per il Crossover)
+                if (selectedStints.length >= 2) selectedStints.shift(); 
                 selectedStints.push(d);
             }
 
-            // Aggiorna contorno per evidenziare la selezione
+            // Aggiorna contorno per evidenziare la nuova selezione/deselezione
             g.selectAll(".stint-rect")
-                .attr("stroke", sd => selectedStints.find(s => s.StintID === sd.StintID) ? "#00ff00" : "#15151e")
-                .attr("stroke-width", sd => selectedStints.find(s => s.StintID === sd.StintID) ? 3 : 1.5);
+                .attr("stroke", sd => selectedStints.some(s => s.Driver === sd.Driver && s.StintNumber === sd.StintNumber) ? "#00ff00" : "#15151e")
+                .attr("stroke-width", sd => selectedStints.some(s => s.Driver === sd.Driver && s.StintNumber === sd.StintNumber) ? 3 : 1.5);
 
             if (callbacks && callbacks.onStintClick) {
                 callbacks.onStintClick(selectedStints);

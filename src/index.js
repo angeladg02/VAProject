@@ -144,12 +144,53 @@ function initDashboard() {
             drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
             // Aggiorna il pannello Analytics
+            // Aggiorna il pannello Analytics nella Sidebar
             const panel = document.querySelector("#analytics-panel");
-            panel.innerHTML = `
-                <h3 style="color: #00ffcc;">Filtro Multi-dimensionale</h3>
-                <p>Stint filtrati: <strong>${selectedStints.length}</strong></p>
-                <p style="font-size: 0.85rem; color: #888;">Questi stint rispettano i parametri di efficienza dei settori o velocità scelti nel grafico in basso.</p>
-            `;
+            
+            if (selectedStints.length === 1) {
+                // ... [codice esistente per 1 stint] ...
+            } else if (selectedStints.length === 2) {
+                // LOGICA CROSSOVER POINT PER LA SIDEBAR
+                const s1 = selectedStints[0];
+                const s2 = selectedStints[1];
+
+                const m1 = s1.DegradationSlope;
+                const mid1 = (s1.LapStart + s1.LapEnd) / 2;
+                const q1 = s1.AvgLapTime - (m1 * mid1);
+
+                const m2 = s2.DegradationSlope;
+                const mid2 = (s2.LapStart + s2.LapEnd) / 2;
+                const q2 = s2.AvgLapTime - (m2 * mid2);
+
+                let crossoverText = "Le strategie non si incrociano.";
+                
+                if (m1 !== m2) {
+                    const crossoverLap = Math.round((q2 - q1) / (m1 - m2));
+                    if (crossoverLap > 0) {
+                        // Chi sorpassa? Chi ha la pendenza minore (m) sarà più veloce dopo il crossover (tempi sul giro più bassi)
+                        const winner = m1 < m2 ? s1.Driver : s2.Driver;
+                        const loser = m1 < m2 ? s2.Driver : s1.Driver;
+                        crossoverText = `<strong>${winner}</strong> sorpassa <strong>${loser}</strong> al giro <strong>~${crossoverLap}</strong>`;
+                    }
+                }
+
+                const deltaDeg = Math.abs(m1 - m2).toFixed(3);
+
+                panel.innerHTML = `
+                    <h3 style="color: #00ffcc;">Crossover Point</h3>
+                    <p>${crossoverText}</p>
+                    <p><strong>Compound:</strong> ${s1.Driver} (<span style="color: ${s1.Compound === 'SOFT' ? '#e10600' : s1.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${s1.Compound}</span>) vs ${s2.Driver} (<span style="color: ${s2.Compound === 'SOFT' ? '#e10600' : s2.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${s2.Compound}</span>)</p>
+                    <p><strong>Delta Degrado:</strong> ${deltaDeg} s/giro</p>
+                    <ul style="padding-left: 20px; font-size: 0.9rem;">
+                        <li><strong>${s1.Driver}:</strong> ${m1.toFixed(3)} s/l</li>
+                        <li><strong>${s2.Driver}:</strong> ${m2.toFixed(3)} s/l</li>
+                    </ul>
+                `;
+            } else if (selectedStints.length > 2) {
+                // ... [codice esistente per > 2 stint (se permesso)] ...
+            } else {
+                panel.innerHTML = `<p>Seleziona gli stint sul Gantt o i dati sulla PCA per aggiornare le statistiche.</p>`;
+            }
         },
         
         onPitClick: (pitData) => { /* ... */ }
