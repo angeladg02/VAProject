@@ -117,10 +117,61 @@ body {
 .viz-card #view-a {
     height: 500px;
 }
+/* Riduciamo l'altezza della card e forziamo il contenuto */
+.viz-card#view-a {
+    flex: 0 0 350px;       /* Altezza fissa ridotta per la card intera */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Riduciamo lo spazio sotto il titolo */
+#view-a h2 {
+    margin-bottom: 5px !important;
+}
 
 /* 2. Regola speciale SOLO per il Gantt Chart */
+/* Il contenitore D3 deve riempire la card senza scroll */
 #gantt-chart {
-    min-height: 450px; /* Solo lui si allunga per non schiacciare i 20 piloti */
-    overflow-y: auto;  /* Se lo schermo è piccolo, crea la scrollbar al suo interno */
-    overflow-x: hidden;
+    flex: 1;               /* Prende tutto lo spazio rimasto nella card */
+    min-height: 0 !important; /* Rimuove il vincolo dei 450px */
+    overflow: hidden !important; 
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Spinge le legende in basso */
+}
+
+.sidebar-legends {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #333;
+
+    .legend-section {
+        margin-bottom: 15px;
+        
+        h3 {
+            font-size: 0.8rem;
+            color: #888894;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+    }
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+
+    .color-box {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        margin-right: 8px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
 }

@@ -13,13 +13,24 @@
         <div id="analytics-panel">
             <p>Seleziona i dati sulla PCA per aggiornare le statistiche.</p>
             </div>
+
+        <div class="sidebar-legends">
+        <div class="legend-section">
+            <h3>Tyre Compounds</h3>
+            <div id="compound-legend"></div>
+        </div>
+        <div class="legend-section">
+            <h3>Teams</h3>
+            <div id="team-legend"></div>
+        </div>
+    </div>
     </aside>
     <div class="main-content">
         <!-- FIRST ROW-->
         <section class="dashboard-row">
             <div class="viz-card" id="view-a" style="flex: 0 0 50%;">
                 <h2>Strategy Gantt</h2>
-                <div id="gantt-chart" class="chart-container"></div>
+                <div id="gantt-chart" class="chart-container" ></div>
             </div>
             <div class="viz-card" id="view-b" style="flex: 0 0 50%;">
                 <h2>Lap Time Evolution</h2>
@@ -31,12 +42,17 @@
         <!-- SECOND ROW-->
         <section class="dashboard-row">
 
-            <div class="empty-space" style="flex: 0 0 50%;"></div>
+            <section class="dashboard-row">
+    <div class="viz-card" id="view-rankings" style="flex: 0 0 50%;">
+        <h2>Race Position Evolution</h2>
+        <div id="position-chart" class="chart-container"></div>
+    </div>
 
-            <div class="viz-card" id="view-c" style="flex: 0 0 50%;">
-                <h2>PCA Stint Analysis</h2>
-                <div id="pca-chart" class="chart-container"></div>
-            </div>
+    <div class="viz-card" id="view-c" style="flex: 0 0 50%;">
+        <h2>PCA Stint Analysis</h2>
+        <div id="pca-chart" class="chart-container"></div>
+    </div>
+</section>
             
             
         </section>

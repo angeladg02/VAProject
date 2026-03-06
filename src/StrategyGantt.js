@@ -35,8 +35,9 @@ export function drawStrategyGantt(rawData, containerId, callbacks) {
     const height = containerNode.clientHeight;
     
     // --> MIGLIORIA 1: Margin left aumentato a 65 per non tagliare i nomi lunghi
-    const margin = { top: 20, right: 30, bottom: 30, left: 65 };
-    const innerWidth = width - margin.left - margin.right;
+  // 1. Riduci il margine superiore (da 20 a 5)
+const margin = { top: 5, right: 30, bottom: 30, left: 65 }; 
+   const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
     const svg = container.append("svg")
@@ -75,10 +76,10 @@ export function drawStrategyGantt(rawData, containerId, callbacks) {
         .range([0, innerWidth]);
 
     // --> MIGLIORIA 2: Padding ridotto a 0.15 per rendere le barre più "cicciotte"
-    const yScale = d3.scaleBand()
-        .domain(drivers)
-        .range([0, innerHeight])
-        .padding(0.15); 
+   const yScale = d3.scaleBand()
+    .domain(drivers)
+    .range([0, innerHeight])
+    .padding(0.15);
 
     // --> MIGLIORIA 4: Aggiunta Griglia Verticale (Disegnata PRIMA delle barre per stare sullo sfondo)
     g.append("g")

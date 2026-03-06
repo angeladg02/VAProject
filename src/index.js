@@ -6,12 +6,53 @@ import { drawStrategyGantt } from './StrategyGantt.js';
 import { drawLineChart } from './LineChart.js';
 import { drawParallelCoordinates } from './ParallelCoordinates.js';
 import { drawPCAChart } from './PCAChart.js';
-
+import { drawRankingsChart } from './RankingsChart.js';
 //data import
 import rawStintsData from '../data/stints_features.csv'; 
 import rawLapsData from '../data/laps_enriched.csv'; 
 import pcaData from '../data/pca_data.json';
 
+const COMPOUND_COLORS = {
+    "SOFT": "#e10600",
+    "MEDIUM": "#ffeb3b",
+    "HARD": "#ffffff",
+    "INTERMEDIATE": "#4caf50",
+    "WET": "#2196f3",
+   
+};
+
+const TEAM_COLORS = {
+    "Ferrari": "#e8002d",
+    "McLaren": "#ff8000",
+    "Mercedes": "#27f4d2",
+    "Red Bull Racing": "#3671c6",
+    "Aston Martin": "#229971",
+    "Alpine": "#0093cc",
+    "Williams": "#64c4ff",
+    "RB": "#6692ff",
+    "Kick Sauber": "#52e252",
+    "Haas F1 Team": "#ffffff"
+};
+
+function createLegends() {
+    // Legenda Mescole
+    const compoundContainer = document.getElementById('compound-legend');
+    Object.entries(COMPOUND_COLORS).forEach(([name, color]) => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<span class="color-box" style="background-color: ${color}"></span>${name}`;
+        compoundContainer.appendChild(item);
+    });
+
+    // Legenda Team
+    const teamContainer = document.getElementById('team-legend');
+    Object.entries(TEAM_COLORS).forEach(([name, color]) => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<span class="color-box" style="background-color: ${color}"></span>${name}`;
+        teamContainer.appendChild(item);
+    });
+}
 function initDashboard() {
     
     const stintsData = rawStintsData.map(d => ({ 
@@ -29,6 +70,9 @@ function initDashboard() {
     //draw initial PCA
     drawPCAChart(pcaData, "#pca-chart", {});
 
+    // Disegna il grafico delle posizioni iniziale
+    drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
+
     //for user interactions, modify here:
     const callbacks = {
         onStintClick: (selectedStints) => {
@@ -38,6 +82,8 @@ function initDashboard() {
             drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
             drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
             drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
+
+            drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
             // Aggiorna il pannello Analytics nella Sidebar
             const panel = document.querySelector("#analytics-panel");
@@ -73,6 +119,8 @@ function initDashboard() {
                 drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
                 drawLineChart(rawLapsData, "#line-chart", callbacks, []);
                 drawPCAChart(pcaData, "#pca-chart", callbacks, []);
+                drawRankingsChart(rawLapsData,"#position-chart", callbacks,[]);
+                
                 document.querySelector("#analytics-panel").innerHTML = `<p>Seleziona i dati sulla PCA per aggiornare le statistiche.</p>`;
                 return;
             }
@@ -90,6 +138,8 @@ function initDashboard() {
             drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
             drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
             drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
+            // Aggiorna anche il Rankings Chart quando usi il filtro PCP
+            drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
             // Aggiorna il pannello Analytics
             const panel = document.querySelector("#analytics-panel");
@@ -107,3 +157,4 @@ function initDashboard() {
 }
 
 initDashboard();
+createLegends();
