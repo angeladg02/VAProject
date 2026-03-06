@@ -150,14 +150,28 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
             .style("cursor", "pointer")
             .on("mouseover", function(event, d) {
                 d3.select(this).attr("opacity", 1).attr("stroke", "#ffffff").attr("stroke-width", 2);
+                
+                // Mappiamo il colore della mescola
+                const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
+
                 tooltip.classed("hidden", false)
                     .html(`
                         <div style="margin-bottom:5px;"><strong>${d.Driver}</strong> - Lap ${d.LapNumber}</div>
+                        <div>Mescola: <strong style="color: ${compColor};">${d.Compound}</strong></div>
                         <div>Lap Time: <strong>${d.LapTime.toFixed(3)}s</strong></div>
+                        <div style="margin-top: 5px; font-size: 0.85em; color: #aaa;">
+                            S1: ${d.Sector1Time ? (+d.Sector1Time).toFixed(3) : '-'} | 
+                            S2: ${d.Sector2Time ? (+d.Sector2Time).toFixed(3) : '-'} | 
+                            S3: ${d.Sector3Time ? (+d.Sector3Time).toFixed(3) : '-'}
+                        </div>
                         <div>Tyre Life: ${d.TyreLife} laps</div>
                     `)
                     .style("left", (event.pageX + 15) + "px")
                     .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mousemove", function(event) {
+                tooltip.style("left", (event.pageX + 15) + "px")
+                       .style("top", (event.pageY - 28) + "px");
             })
             .on("mouseout", function(event, d) {
                 // Se il pallino appartiene a uno degli stint selezionati, resta acceso
