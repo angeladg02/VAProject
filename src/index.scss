@@ -1,162 +1,126 @@
-/* --- RESET PER NO-SCROLLING --- */
-body {
+/* --- RESET E BASE --- */
+html, body {
     margin: 0;
-    padding: 10px 20px;
-    min-height: 100vh;       /* Usa min-height invece di height fisso */
-    overflow-x: hidden;      /* Blocca lo scroll orizzontale */
-    overflow-y: auto;        /* ABILITA LO SCROLL VERTICALE! */
-    box-sizing: border-box;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden; /* Blocca categoricamente ogni scroll */
     background-color: #15151e;
     color: #f5f5f5;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    display: flex;
-    flex-direction: column;
+    font-family: 'Segoe UI', sans-serif;
 }
 
-.topbar {
-    flex: 0 0 40px;          /* L'header prende sempre 40px in alto */
+.dashboard-layout {
     display: flex;
-    align-items: center;
-    border-bottom: 1px solid #333;
-    margin-bottom: 15px;
+    height: 100vh;
+    width: 100vw;
+    padding: 10px;
+    gap: 10px;
+    box-sizing: border-box;
+}
+
+/* --- SIDEBAR OTTIMIZZATA --- */
+.sidebar {
+    flex: 0 0 15%; /* Più stretta */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8rem;
     
-    h1 {
-        margin: 0; 
-        font-size: 1.5rem;
-        span { color: #e10600; font-weight: 300; }
+    h1 { font-size: 1.1rem; margin-bottom: 10px; span { color: #e10600; } }
+    #analytics-panel { flex: 1; overflow-y: auto; }
+}
+
+/* --- GRID DEI GRAFICI --- */
+.main-content-grid {
+    flex: 1;
+    display: grid;
+    /* 3 Righe: 35%, 30%, 25% (totale 90% + gap) */
+    grid-template-rows: 35vh 30vh 25vh;
+    /* 2 Colonne uguali */
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    height: 100%;
+}
+
+/* Parallel Coordinates occupa entrambe le colonne in fondo */
+#view-parallel {
+    grid-column: 1 / span 2;
+}
+
+.viz-card {
+    background-color: #22222e;
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Permette al contenuto di restringersi */
+
+    h2 {
+        margin: 0 0 5px 0;
+        font-size: 0.75rem;
+        color: #888894;
+        text-transform: uppercase;
+    }
+
+    .chart-container {
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+        position: relative;
     }
 }
 
-/* --- MACRO LAYOUT: Main + Sidebar --- */
-.dashboard-layout {
-    flex: 1;                 /* Occupa tutto lo spazio verticale rimasto sotto l'header */
-    display: flex;           /* Affianca il main-content e la sidebar */
-    gap: 15px;
-    min-height: 0;           /* Hack fondamentale per far funzionare Flexbox senza scroll */
-}
-
-/* 80% Sinistra */
-.main-content {
-    flex: 0 0 80%;
-    display: flex;
-    flex-direction: column;  /* Impila le fasce verticalmente */
-    gap: 15px;
-    min-height: 0;
-}
-
-/* 20% Destra */
+/* --- SIDEBAR --- */
 .sidebar {
-    flex: 0 0 calc(20% - 15px); /* Sottraggo il gap per evitare sbavature */
+    flex: 0 0 18%; /* Leggermente più larga per ospitare bene i nomi dei team */
     background-color: #22222e;
     border-radius: 8px;
     padding: 15px;
-    overflow-y: auto;        /* Se i dettagli diventano troppi, solo la sidebar scrolla internamente */
-}
-
-/* --- LE FASCE (ROWS) --- */
-.dashboard-row {
-    flex: 1;                 /* Ogni fascia prende una frazione uguale dell'altezza totale */
-    display: flex;           /* Affianca le card all'interno della fascia */
-    gap: 15px;
-    min-height: 0;
-}
-
-
-
-
-/* --- CARD DEI GRAFICI --- */
-.viz-card {
-    background-color: #22222e;
-    border-radius: 8px;
-    padding: 10px 15px;
     display: flex;
     flex-direction: column;
+    height: 100%;
     box-sizing: border-box;
+
+    h1 {
+        margin: 0 0 10px 0;
+        font-size: 1.3rem;
+        span { color: #e10600; font-weight: 300; }
+    }
 
     h2 {
         margin: 0 0 10px 0;
         font-size: 0.9rem;
         color: #888894;
         text-transform: uppercase;
-        flex: 0 0 auto;
     }
 }
 
-/* --- TOOLTIP --- */
-.tooltip {
-    position: absolute;
-    background: rgba(21, 21, 30, 0.95);
-    color: #f5f5f5;
-    padding: 10px 15px;
-    border-radius: 6px;
-    border: 1px solid #333;
-    pointer-events: none; /* FONDAMENTALE: impedisce al tooltip di bloccare il mouse */
-    font-size: 0.85rem;
-    z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: opacity 0.2s;
-}
-
-.tooltip.hidden {
-    opacity: 0;
-}
-
-/* =========================================
-   REGOLE FONDAMENTALI PER I GRAFICI D3
-   ========================================= */
-
-/* 1. Regola generale per TUTTI i grafici (Lap Time, PCA, Parallel) */
-.viz-card .chart-container {
-    flex: 1;
-    position: relative;
-    min-height: 0; 
-    min-width: 0;
-    overflow: hidden; /* FONDAMENTALE: Taglia via qualsiasi cosa provi a uscire dalla card scura */
-}
-
-.viz-card #view-a {
-    height: 500px;
-}
-/* Riduciamo l'altezza della card e forziamo il contenuto */
-.viz-card#view-a {
-    flex: 0 0 350px;       /* Altezza fissa ridotta per la card intera */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-/* Riduciamo lo spazio sotto il titolo */
-#view-a h2 {
-    margin-bottom: 5px !important;
-}
-
-/* 2. Regola speciale SOLO per il Gantt Chart */
-/* Il contenitore D3 deve riempire la card senza scroll */
-#gantt-chart {
-    flex: 1;               /* Prende tutto lo spazio rimasto nella card */
-    min-height: 0 !important; /* Rimuove il vincolo dei 450px */
-    overflow: hidden !important; 
-}
-
-.sidebar {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between; /* Spinge le legende in basso */
-}
-
+/* --- LEGGENDE ORIGINALI --- */
+/* --- SIDEBAR LEGENDS --- */
 .sidebar-legends {
-    margin-top: 20px;
+    margin-top: auto; 
     padding-top: 15px;
     border-top: 1px solid #333;
+    
+    /* Contenitore per affiancare le due sezioni */
+    .legends-wrapper {
+        display: flex;
+        flex-direction: row; /* Affianca orizzontalmente */
+        gap: 20px;           /* Spazio tra le due leggende */
+        align-items: flex-start;
+    }
 
     .legend-section {
-        margin-bottom: 15px;
+        flex: 1; /* Entrambe le sezioni prendono lo stesso spazio */
+        margin-bottom: 10px;
         
         h3 {
-            font-size: 0.8rem;
+            font-size: 0.75rem; /* Leggermente più piccolo per stare nei margini */
             color: #888894;
             text-transform: uppercase;
             margin-bottom: 8px;
+            white-space: nowrap; /* Evita che il titolo vada a capo */
         }
     }
 }
@@ -164,14 +128,14 @@ body {
 .legend-item {
     display: flex;
     align-items: center;
-    margin-bottom: 4px;
-    font-size: 0.85rem;
+    margin-bottom: 5px;
+    font-size: 0.8rem; /* Ridotto leggermente per ottimizzare lo spazio */
 
     .color-box {
-        width: 12px;
-        height: 12px;
+        width: 10px;
+        height: 10px;
         border-radius: 2px;
-        margin-right: 8px;
-        border: 1px solid rgba(255,255,255,0.1);
+        margin-right: 6px;
+        flex-shrink: 0;
     }
 }

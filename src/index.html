@@ -1,22 +1,13 @@
-<!-- 
-<header class="topbar">
-    
-    <h1>🏎️ F1 Performance Insight <span>Monza 2024</span></h1>
-   
-</header>
--->
 <main class="dashboard-layout">
-    
     <aside class="sidebar viz-card">
         <h1><span>Monza 2024</span></h1>
-        <h2>Analytics on Demand</h2>
         <div id="analytics-panel">
-            <p>Seleziona i dati sulla PCA per aggiornare le statistiche.</p>
-            </div>
-
-        <div class="sidebar-legends">
+            <p>Seleziona i dati per aggiornare le statistiche.</p>
+        </div>
+       <div class="sidebar-legends">
+    <div class="legends-wrapper">
         <div class="legend-section">
-            <h3>Tyre Compounds</h3>
+            <h3>Tyre</h3>
             <div id="compound-legend"></div>
         </div>
         <div class="legend-section">
@@ -24,49 +15,31 @@
             <div id="team-legend"></div>
         </div>
     </div>
+</div>
     </aside>
-    <div class="main-content">
-        <!-- FIRST ROW-->
-        <section class="dashboard-row">
-            <div class="viz-card" id="view-a" style="flex: 0 0 50%;">
-                <h2>Strategy Gantt</h2>
-                <div id="gantt-chart" class="chart-container" ></div>
-            </div>
-            <div class="viz-card" id="view-b" style="flex: 0 0 50%;">
-                <h2>Lap Time Evolution</h2>
-                <div id="line-chart" class="chart-container"></div>
-            </div>
 
-              
-        </section>
-        <!-- SECOND ROW-->
-        <section class="dashboard-row">
+    <div class="main-content-grid">
+        <div class="viz-card" id="view-gantt">
+            <h2>Strategy Gantt</h2>
+            <div id="gantt-chart" class="chart-container"></div>
+        </div>
+        <div class="viz-card" id="view-rankings">
+            <h2>Race Position Evolution</h2>
+            <div id="position-chart" class="chart-container"></div>
+        </div>
 
-            <section class="dashboard-row">
-    <div class="viz-card" id="view-rankings" style="flex: 0 0 50%;">
-        <h2>Race Position Evolution</h2>
-        <div id="position-chart" class="chart-container"></div>
+        <div class="viz-card" id="view-laps">
+            <h2>Lap Time Evolution</h2>
+            <div id="line-chart" class="chart-container"></div>
+        </div>
+        <div class="viz-card" id="view-pca">
+            <h2>PCA Stint Analysis</h2>
+            <div id="pca-chart" class="chart-container"></div>
+        </div>
+
+        <div class="viz-card" id="view-parallel">
+            <h2>Parallel Coordinates</h2>
+            <div id="pcp-chart" class="chart-container"></div>
+        </div>
     </div>
-
-    <div class="viz-card" id="view-c" style="flex: 0 0 50%;">
-        <h2>PCA Stint Analysis</h2>
-        <div id="pca-chart" class="chart-container"></div>
-    </div>
-</section>
-            
-            
-        </section>
-        <!-- THIRD ROW-->
-        <section class="dashboard-row">
-            <div class="viz-card" id="view-d" style="flex: 0 0 100%;">
-                <h2>Parallel Coordinates</h2>
-                <div id="pcp-chart" class="chart-container"></div>
-            </div>
-        </section>
-
-    </div>
-
-
 </main>
-
-<div id="tooltip" class="tooltip hidden"></div>

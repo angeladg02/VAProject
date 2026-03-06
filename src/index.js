@@ -37,6 +37,7 @@ const TEAM_COLORS = {
 function createLegends() {
     // Legenda Mescole
     const compoundContainer = document.getElementById('compound-legend');
+    compoundContainer.innerHTML = ''; // Pulisce prima di ricreare
     Object.entries(COMPOUND_COLORS).forEach(([name, color]) => {
         const item = document.createElement('div');
         item.className = 'legend-item';
@@ -46,6 +47,7 @@ function createLegends() {
 
     // Legenda Team
     const teamContainer = document.getElementById('team-legend');
+    teamContainer.innerHTML = ''; // Pulisce prima di ricreare
     Object.entries(TEAM_COLORS).forEach(([name, color]) => {
         const item = document.createElement('div');
         item.className = 'legend-item';
