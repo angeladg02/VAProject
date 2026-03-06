@@ -64,16 +64,16 @@ function initDashboard() {
     }));
 
     //draw lap time evolution
-    drawLineChart(rawLapsData, "#line-chart", {});
+   // drawLineChart(rawLapsData, "#line-chart", {});
     
     //draw parallel coordinates
-    drawParallelCoordinates(rawLapsData, "#pcp-chart", {});
+    //drawParallelCoordinates(rawLapsData, "#pcp-chart", {});
 
     //draw initial PCA
-    drawPCAChart(pcaData, "#pca-chart", {});
+    //drawPCAChart(pcaData, "#pca-chart", {});
 
     // Disegna il grafico delle posizioni iniziale
-    drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
+    //drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
 
     //for user interactions, modify here:
     const callbacks = {
@@ -197,6 +197,20 @@ function initDashboard() {
     };
     //draw the gantt chart
     drawStrategyGantt(stintsData, "#gantt-chart", callbacks);
+    // draw lap time evolution
+    drawLineChart(rawLapsData, "#line-chart", callbacks); 
+    
+    // draw parallel coordinates
+    drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks);
+
+    // draw initial PCA
+    drawPCAChart(pcaData, "#pca-chart", callbacks); // <-- Questo fa funzionare la PCA da subito!
+
+    // Disegna il grafico delle posizioni iniziale
+    drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
+
+    // draw the gantt chart
+    drawStrategyGantt(stintsData, "#gantt-chart", callbacks)
 }
 
 initDashboard();
