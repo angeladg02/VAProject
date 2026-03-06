@@ -35,13 +35,15 @@ html, body {
 .main-content-grid {
     flex: 1;
     display: grid;
-    /* 3 Righe: 35%, 30%, 25% (totale 90% + gap) */
-    grid-template-rows: 35vh 30vh 25vh;
-    /* 2 Colonne uguali */
+    /* Usiamo fr per riempire lo spazio: 
+       La prima riga è circa 1.7 volte più alta delle altre */
+    grid-template-rows: 1.5fr 1.2fr 1.1fr; 
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    height: 100%;
+    gap: 12px;
+    height: 100%; /* Fondamentale per occupare tutto il flex container */
+    min-height: 0; /* Impedisce alla griglia di espandersi oltre il contenitore */
 }
+
 
 /* Parallel Coordinates occupa entrambe le colonne in fondo */
 #view-parallel {
