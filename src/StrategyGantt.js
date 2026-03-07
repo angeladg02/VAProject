@@ -40,13 +40,15 @@ export function drawStrategyGantt(rawData, containerId, callbacks, selectedStint
     const svg = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .style("display", "block")
-        // Doppio click per reset globale (invia array vuoto a index.js)
-        .on("dblclick", function() {
-            if (callbacks && callbacks.onStintClick) {
-                callbacks.onStintClick([]);
+        .style("display", "block") // (Aggiungi questa se manca, aiuta con i resize)
+        // --- NUOVO: Listener per il Reset Globale ---
+        .on("dblclick", function(event) {
+            event.preventDefault(); // Evita selezioni di testo accidentali
+            if (callbacks && callbacks.onReset) {
+                callbacks.onReset();
             }
         });
+        // --------------------------------------------
 
     // 3. DEFINIZIONE GRADIENTI PER DEGRADO GOMMA
     const defs = svg.append("defs");

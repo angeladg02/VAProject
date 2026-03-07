@@ -50,9 +50,15 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
     const svg = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .attr("viewBox", `0 0 ${width} ${height}`)
-        .attr("preserveAspectRatio", "none")
-        .style("display", "block");
+        .style("display", "block") // (Aggiungi questa se manca, aiuta con i resize)
+        // --- NUOVO: Listener per il Reset Globale ---
+        .on("dblclick", function(event) {
+            event.preventDefault(); // Evita selezioni di testo accidentali
+            if (callbacks && callbacks.onReset) {
+                callbacks.onReset();
+            }
+        });
+        // --------------------------------------------
 
     svg.append("defs").append("clipPath")
         .attr("id", "clip")

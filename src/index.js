@@ -231,6 +231,40 @@ function initDashboard() {
                 <p>Stint evidenziati: <strong>${selectedStints.length}</strong></p>
             `;
         },
+
+        // NUOVA FUNZIONE DI RESET GLOBALE
+        onReset: () => {
+            // 1. Ridisegna tutti i grafici passandogli un array vuoto
+            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
+            drawLineChart(rawLapsData, "#line-chart", callbacks, []);
+            drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, []);
+            drawPCAChart(pcaData, "#pca-chart", callbacks, []);
+            drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
+
+            // 2. Calcola le statistiche aggregate di gara per la Sidebar
+            const totalStints = stintsData.length;
+            const totalDrivers = new Set(stintsData.map(d => d.Driver)).size;
+            
+            // Calcola il degrado medio (escludendo eventuali valori anomali negativi/nulli)
+            const validDeg = stintsData.filter(d => d.DegradationSlope > 0);
+            const avgDegradation = validDeg.length > 0 ? d3.mean(validDeg, d => d.DegradationSlope) : 0;
+            
+            // Trova il giro più veloce in assoluto per curiosità
+            const validLaps = rawLapsData.filter(d => +d.LapTimeSeconds > 0);
+            const fastestLap = validLaps.reduce((min, p) => +p.LapTimeSeconds < +min.LapTimeSeconds ? p : min, validLaps[0]);
+
+            // 3. Aggiorna la Sidebar
+            const panel = document.querySelector("#analytics-panel");
+            panel.innerHTML = `
+                <h3 style="color: #00ffcc;">Overview Gara</h3>
+                <p>Piloti in Pista: <strong>${totalDrivers}</strong></p>
+                <p>Stint Totali: <strong>${totalStints}</strong></p>
+                <p>Degrado Gomme Medio: <strong>${avgDegradation.toFixed(3)} s/giro</strong></p>
+                ${fastestLap ? `<p>Giro Veloce: <strong>${fastestLap.Driver}</strong> (${(+fastestLap.LapTimeSeconds).toFixed(3)}s al L${fastestLap.LapNumber})</p>` : ''}
+                <hr style="border-color: #333344; margin: 15px 0;">
+                <p style="font-size: 0.85rem; color: #888894;"><i>Usa il brush o clicca sui grafici per esplorare le strategie. Fai doppio click su qualsiasi grafico per ripristinare questa vista.</i></p>
+            `;
+        },
         
         onPitClick: (pitData) => { /* ... */ }
     };

@@ -22,10 +22,20 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     const width = node.clientWidth - margin.left - margin.right;
     const height = node.clientHeight - margin.top - margin.bottom;
 
-    const svg = container.append("svg")
+    // 1. Creiamo l'SVG, lo salviamo in una variabile e gli diamo il doppio click
+    const svgBase = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .append("g")
+        .style("display", "block")
+        .on("dblclick", function(event) {
+            event.preventDefault(); 
+            if (callbacks && callbacks.onReset) {
+                callbacks.onReset();
+            }
+        });
+
+    // 2. Aggiungiamo il gruppo <g> all'SVG appena creato (mantenendo la tua variabile "svg" per non rompere il resto del codice)
+    const svg = svgBase.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Scale

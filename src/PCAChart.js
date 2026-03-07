@@ -34,7 +34,15 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
     const svg = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .style("display", "block");
+        .style("display", "block") // (Aggiungi questa se manca, aiuta con i resize)
+        // --- NUOVO: Listener per il Reset Globale ---
+        .on("dblclick", function(event) {
+            event.preventDefault(); // Evita selezioni di testo accidentali
+            if (callbacks && callbacks.onReset) {
+                callbacks.onReset();
+            }
+        });
+        // --------------------------------------------
 
     const g = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
