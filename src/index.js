@@ -192,6 +192,45 @@ function initDashboard() {
                 panel.innerHTML = `<p>Seleziona gli stint sul Gantt o i dati sulla PCA per aggiornare le statistiche.</p>`;
             }
         },
+
+        // --- Dentro index.js, nei callbacks ---
+        onRankingBrush: (selectedDrivers, minLap, maxLap) => {
+            if (!selectedDrivers || selectedDrivers.length === 0) {
+                drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
+                drawLineChart(rawLapsData, "#line-chart", callbacks, []);
+                drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, []);
+                drawPCAChart(pcaData, "#pca-chart", callbacks, []);
+                
+                document.querySelector("#analytics-panel").innerHTML = `<p>Seleziona i dati sui grafici per aggiornare le statistiche.</p>`;
+                return;
+            }
+
+            // ---> MODIFICA: Filtriamo gli stint controllando ANCHE l'intersezione matematica dei giri!
+            const selectedStints = stintsData.filter(stint => {
+                // 1. Il pilota deve essere tra quelli selezionati
+                const isRightDriver = selectedDrivers.includes(stint.Driver);
+                
+                // 2. Lo stint deve sovrapporsi (anche parzialmente) al range selezionato dal brush
+                const overlapsLaps = (stint.LapStart <= maxLap) && (stint.LapEnd >= minLap);
+
+                return isRightDriver && overlapsLaps;
+            });
+
+            // Passiamo gli stint correttamente filtrati agli altri grafici
+            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
+            drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
+            drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
+            drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
+
+            // Aggiorniamo la Sidebar
+            const panel = document.querySelector("#analytics-panel");
+            panel.innerHTML = `
+                <h3 style="color: #00ffcc;">Analisi dal Ranking</h3>
+                <p>Range di giri: <strong>${minLap} - ${maxLap}</strong></p>
+                <p>Piloti coinvolti: <strong>${selectedDrivers.length}</strong></p>
+                <p>Stint evidenziati: <strong>${selectedStints.length}</strong></p>
+            `;
+        },
         
         onPitClick: (pitData) => { /* ... */ }
     };

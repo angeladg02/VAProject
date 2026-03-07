@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+
 const TEAM_COLORS = {
     "Ferrari": "#e8002d",
     "McLaren": "#ff8000",
@@ -47,6 +48,17 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
         .call(d3.axisLeft(yScale).ticks(10))
         .attr("color", "#888");
 
+    // --- NUOVO: Configurazione del Brush X ---
+    const brush = d3.brush() 
+        .extent([[0, 0], [width, height]])
+        .on("end", brushed);
+    // Aggiungiamo il brush prima delle linee così i tooltips sulle linee continuano a funzionare in parte
+    // (D3 brush intercetta i click, ma le linee sopra intercetteranno gli hover)
+    svg.append("g")
+        .attr("class", "brush")
+        .call(brush);
+    // ------------------------------------------
+
     // Line generator
     const line = d3.line()
         .x(d => xScale(+d.LapNumber))
@@ -56,14 +68,16 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     // Raggruppiamo i dati per pilota
     const dataByDriver = d3.group(data, d => d.Driver);
 
+    // Disegniamo i path per ogni pilota
+    const linesGroup = svg.append("g").attr("class", "lines-group");
+
     dataByDriver.forEach((laps, driver) => {
-       
          const teamColor = TEAM_COLORS[laps[0].Team] || "#888894";
         
         // Verifica se il pilota è tra quelli selezionati (per evidenziarlo)
         const isSelected = selectedStints.some(s => s.Driver === driver);
 
-        svg.append("path")
+        linesGroup.append("path")
             .datum(laps)
             .attr("fill", "none")
             .attr("stroke", teamColor)
@@ -83,4 +97,45 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
                 d3.select("#tooltip").classed("hidden", true);
             });
     });
+
+    // --- NUOVO: Funzione per gestire l'evento di brush ---
+   // --- Dentro RankingsChart.js, alla fine della funzione brushed ---
+    function brushed(event) {
+        if (!event.selection) {
+            if (callbacks.onRankingBrush) {
+                callbacks.onRankingBrush([], null, null); 
+            }
+            return;
+        }
+
+        // Ora event.selection contiene un rettangolo 2D: [[x0, y0], [x1, y1]]
+        const [[x0, y0], [x1, y1]] = event.selection;
+
+        // Troviamo il range di giri (Asse X)
+        const minLap = Math.floor(xScale.invert(x0));
+        const maxLap = Math.ceil(xScale.invert(x1));
+
+        // Troviamo il range di posizioni (Asse Y)
+        // Nota: y0 è il lato alto del quadrato, y1 il lato basso. 
+        const posTop = yScale.invert(y0);    // es. Posizione 1 (in alto)
+        const posBottom = yScale.invert(y1); // es. Posizione 5 (più in basso)
+
+        const selectedDriversSet = new Set();
+        data.forEach(d => {
+            const lap = +d.LapNumber;
+            const pos = +d.Position;
+            
+            // FILTRO MAGICO: Il pilota deve essere nel range di giri E nel range di posizioni!
+            if (lap >= minLap && lap <= maxLap && pos >= posTop && pos <= posBottom) {
+                selectedDriversSet.add(d.Driver);
+            }
+        });
+
+        const selectedDrivers = Array.from(selectedDriversSet);
+
+        if (callbacks.onRankingBrush) {
+            callbacks.onRankingBrush(selectedDrivers, minLap, maxLap);
+        }
+    }
+    // ------------------------------------------
 }
