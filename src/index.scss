@@ -161,3 +161,17 @@ html, body {
     opacity: 0;
     visibility: hidden;
 }
+
+/* Aggiungi questo in src/index.scss */
+.wear-gradient-bar {
+    flex-grow: 1;
+    height: 12px;
+    border-radius: 2px;
+    /* Usiamo un grigio neutro per mostrare il concetto di opacità */
+    background: linear-gradient(to right, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.3));
+    border: 1px solid #444;
+}
+
+.wear-legend p {
+    line-height: 1.2;
+}

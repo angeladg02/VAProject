@@ -35,14 +35,36 @@ const TEAM_COLORS = {
 };
 
 function createLegends() {
-    // Legenda Mescole
+    // Legenda Mescole (Sostituisce la vecchia lista Tyre)
     const compoundContainer = document.getElementById('compound-legend');
-    compoundContainer.innerHTML = ''; // Pulisce prima di ricreare
+    compoundContainer.innerHTML = ''; 
+
+    // Spiegazione testuale rapida
+    const explanation = document.createElement('p');
+    explanation.style.cssText = "font-size: 0.75rem; color: #888; margin-bottom: 12px; line-height: 1.2;";
+    explanation.innerText = "L'opacità decrescente indica l'usura (fresca → consumata).";
+    compoundContainer.appendChild(explanation);
+
+    // Creazione delle barre per ogni mescola definita in COMPOUND_COLORS
     Object.entries(COMPOUND_COLORS).forEach(([name, color]) => {
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = `<span class="color-box" style="background-color: ${color}"></span>${name}`;
-        compoundContainer.appendChild(item);
+        const wrapper = document.createElement('div');
+        wrapper.className = 'compound-wear-row';
+        wrapper.style.cssText = "margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;";
+
+        wrapper.innerHTML = `
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold;">
+                <span>${name}</span>
+                <span style="font-weight: normal; opacity: 0.6;">Fresca → Consumata</span>
+            </div>
+            <div class="wear-bar" style="
+                height: 8px; 
+                border-radius: 4px; 
+                background: linear-gradient(to right, ${color} 100%, ${color} 30%);
+                opacity: 0.9;
+                background: linear-gradient(to right, ${color}, rgba(${hexToRgb(color)}, 0.2));
+            "></div>
+        `;
+        compoundContainer.appendChild(wrapper);
     });
 
     // Legenda Team
@@ -288,3 +310,11 @@ function initDashboard() {
 
 initDashboard();
 createLegends();
+
+// Funzione di utilità per gestire il gradiente con RGBA (da aggiungere in fondo a index.js o fuori dalla funzione)
+function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `${r}, ${g}, ${b}`;
+}
