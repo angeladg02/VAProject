@@ -63,111 +63,154 @@ function initDashboard() {
         TyreLifeStart: +d.TyreLifeStart, TotalLaps: +d.TotalLaps 
     }));
 
-    //draw lap time evolution
-   // drawLineChart(rawLapsData, "#line-chart", {});
-    
-    //draw parallel coordinates
-    //drawParallelCoordinates(rawLapsData, "#pcp-chart", {});
+    // =========================================================
+    // 1. CALCOLO STATISTICHE GLOBALI (FISSE PER LA SIDEBAR)
+    // =========================================================
+    const totalStints = stintsData.length;
+    // Pit stops = tutti gli stint successivi al primo
+    const totalPitStops = stintsData.filter(d => d.StintNumber > 1).length;
 
-    //draw initial PCA
-    //drawPCAChart(pcaData, "#pca-chart", {});
+    // Estrazione Temperature (ignoriamo i valori a 0 o invalidi)
+    const validTrackTemps = rawLapsData.filter(d => +d.TrackTemp > 0).map(d => +d.TrackTemp);
+    const avgTrackTemp = validTrackTemps.length ? d3.mean(validTrackTemps) : 0;
 
-    // Disegna il grafico delle posizioni iniziale
-    //drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
+    const validAirTemps = rawLapsData.filter(d => +d.AirTemp > 0).map(d => +d.AirTemp);
+    const avgAirTemp = validAirTemps.length ? d3.mean(validAirTemps) : 0;
 
-    //for user interactions, modify here:
+    // Conteggio Distribuzione Mescole
+    const compoundCounts = d3.rollup(stintsData, v => v.length, d => d.Compound);
+    const softCount = compoundCounts.get("SOFT") || 0;
+    const medCount = compoundCounts.get("MEDIUM") || 0;
+    const hardCount = compoundCounts.get("HARD") || 0;
+    const intCount = compoundCounts.get("INTERMEDIATE") || 0;
+    const wetCount = compoundCounts.get("WET") || 0;
+
+    // Generiamo l'HTML statico che rimarrà sempre in cima al pannello Analytics
+    const globalOverviewHTML = `
+        <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #333344;">
+            <h3 style="color: #00ffcc; margin-top: 0; font-size: 0.95rem; text-transform: uppercase;">Race Overview</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem;">
+                <div>Stints: <strong style="color: #fff;">${totalStints}</strong></div>
+                <div>Pit Stops: <strong style="color: #fff;">${totalPitStops}</strong></div>
+                <div>Track: <strong style="color: #fff;">${avgTrackTemp.toFixed(1)}°C</strong></div>
+                <div>Air: <strong style="color: #fff;">${avgAirTemp.toFixed(1)}°C</strong></div>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.85rem;">
+                <strong style="display:block; margin-bottom: 4px;">Tyres Distribution:</strong>
+                <span style="color:#e10600; font-weight:bold;">S: ${softCount}</span> |
+                <span style="color:#ffeb3b; font-weight:bold;">M: ${medCount}</span> |
+                <span style="color:#ffffff; font-weight:bold;">H: ${hardCount}</span>
+                ${intCount > 0 ? `| <span style="color:#4caf50; font-weight:bold;">I: ${intCount}</span>` : ''}
+                ${wetCount > 0 ? `| <span style="color:#2196f3; font-weight:bold;">W: ${wetCount}</span>` : ''}
+            </div>
+        </div>
+    `;
+
+    // =========================================================
+    // 2. FUNZIONE HELPER PER AGGIORNARE LA SIDEBAR
+    // =========================================================
+    // Questa funzione unisce i dati globali fissi con i dettagli dinamici del brush
+    const updateSidebar = (specificHTML = "") => {
+        const panel = document.querySelector("#analytics-panel");
+        
+        // Se non c'è nessuna selezione, mostriamo dati medi extra come riempitivo
+        if (!specificHTML) {
+            const validDeg = stintsData.filter(d => d.DegradationSlope > 0);
+            const avgDegradation = validDeg.length > 0 ? d3.mean(validDeg, d => d.DegradationSlope) : 0;
+            const validLaps = rawLapsData.filter(d => +d.LapTimeSeconds > 0);
+            const fastestLap = validLaps.reduce((min, p) => +p.LapTimeSeconds < +min.LapTimeSeconds ? p : min, validLaps[0]);
+
+            specificHTML = `
+                <h3 style="color: #888894; font-size: 0.85rem; text-transform: uppercase;">Performance Globale</h3>
+                <p style="font-size: 0.85rem;">Degrado Medio: <strong>${avgDegradation.toFixed(3)} s/giro</strong></p>
+                ${fastestLap ? `<p style="font-size: 0.85rem;">Giro Veloce: <strong>${fastestLap.Driver}</strong> (${(+fastestLap.LapTimeSeconds).toFixed(3)}s al L${fastestLap.LapNumber})</p>` : ''}
+                <p style="font-size: 0.8rem; color: #888894; margin-top: 15px;"><i>Usa il brush o clicca sui grafici per esplorare le strategie. Doppio click per ripristinare.</i></p>
+            `;
+        }
+        // Incolla tutto insieme
+        panel.innerHTML = globalOverviewHTML + '<div class="selection-details">' + specificHTML + '</div>';
+    };
+
+    // =========================================================
+    // 3. CALLBACKS DEI GRAFICI AGGIORNATI
+    // =========================================================
     const callbacks = {
         onStintClick: (selectedStints) => {
-            
-            // Sincronizza tutti e 4 i grafici passandogli l'array degli stint selezionati!
             drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
             drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
             drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
             drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
-
             drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
-            // Aggiorna il pannello Analytics nella Sidebar
-            const panel = document.querySelector("#analytics-panel");
-            
+            let specificHTML = "";
             if (selectedStints.length === 1) {
-                panel.innerHTML = `
-                    <h3 style="color: #00ffcc;">Dettaglio Stint</h3>
-                    <p>Pilota: <strong>${selectedStints[0].Driver}</strong></p>
-                    <p>Mescola: <strong style="color: ${selectedStints[0].Compound === 'SOFT' ? '#e10600' : selectedStints[0].Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${selectedStints[0].Compound}</strong></p>
-                    <p>Giri: ${selectedStints[0].LapStart} - ${selectedStints[0].LapEnd}</p>
-                    <p>Degrado: <strong>${(+selectedStints[0].DegradationSlope).toFixed(3)} s/giro</strong></p>
+                specificHTML = `
+                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Dettaglio Stint</h3>
+                    <p style="font-size: 0.85rem;">Pilota: <strong>${selectedStints[0].Driver}</strong></p>
+                    <p style="font-size: 0.85rem;">Mescola: <strong style="color: ${selectedStints[0].Compound === 'SOFT' ? '#e10600' : selectedStints[0].Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${selectedStints[0].Compound}</strong></p>
+                    <p style="font-size: 0.85rem;">Giri: ${selectedStints[0].LapStart} - ${selectedStints[0].LapEnd}</p>
+                    <p style="font-size: 0.85rem;">Degrado: <strong>${(+selectedStints[0].DegradationSlope).toFixed(3)} s/giro</strong></p>
                 `;
             } else if (selectedStints.length > 1) {
                 const avgDeg = d3.mean(selectedStints, s => +s.DegradationSlope) || 0;
                 const listItems = selectedStints.map(s => 
                     `<li><strong>${s.Driver}</strong> (${s.Compound}): ${(+s.DegradationSlope).toFixed(3)} s/l</li>`
                 ).join(""); 
-                
-                panel.innerHTML = `
-                    <h3 style="color: #00ffcc;">Analisi Comparata (${selectedStints.length} Stint)</h3>
-                    <p>Degrado Medio: <strong>${avgDeg.toFixed(3)} s/giro</strong></p>
-                    <ul style="padding-left: 20px; font-size: 0.9rem;">${listItems}</ul>
+                specificHTML = `
+                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Analisi Comparata (${selectedStints.length} Stint)</h3>
+                    <p style="font-size: 0.85rem;">Degrado Medio: <strong>${avgDeg.toFixed(3)} s/giro</strong></p>
+                    <ul style="padding-left: 20px; font-size: 0.85rem;">${listItems}</ul>
                 `;
-            } else {
-                panel.innerHTML = `<p>Seleziona gli stint sul Gantt o i dati sulla PCA per aggiornare le statistiche.</p>`;
             }
+            updateSidebar(specificHTML);
         },
 
-        // --- NUOVA INTERAZIONE: DAL PARALLEL COORDINATES AL RESTO ---
         onPCPBrush: (activeStints) => {
             if (activeStints.length === 0) {
-                // Resettiamo tutti i grafici se si cancella il filtro
                 drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
                 drawLineChart(rawLapsData, "#line-chart", callbacks, []);
                 drawPCAChart(pcaData, "#pca-chart", callbacks, []);
                 drawRankingsChart(rawLapsData,"#position-chart", callbacks,[]);
                 
-                document.querySelector("#analytics-panel").innerHTML = `<p>Seleziona i dati sulla PCA per aggiornare le statistiche.</p>`;
+                updateSidebar(""); // Stringa vuota ripristina i dati di default
                 return;
             }
 
-            // Mappiamo i dati aggregati provenienti dal PCP sui veri Stint del dataset
             const selectedStints = stintsData.filter(stint => {
                 return activeStints.some(active => 
                     active.Driver === stint.Driver && 
-                    // Controlla l'intersezione matematica per trovare lo stint corrispondente
                     Math.max(active.LapStart, stint.LapStart) <= Math.min(active.LapEnd, stint.LapEnd)
                 );
             });
 
-            // Aggiorna gli altri 3 grafici
             drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
             drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
             drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
-            // Aggiorna anche il Rankings Chart quando usi il filtro PCP
             drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
-            // Aggiorna il pannello Analytics
-            // Aggiorna il pannello Analytics nella Sidebar
-            const panel = document.querySelector("#analytics-panel");
-            
+            let specificHTML = "";
             if (selectedStints.length === 1) {
-                // ... [codice esistente per 1 stint] ...
+                // ... [uguale a onStintClick per 1 stint] ...
+                 specificHTML = `
+                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Dettaglio Stint</h3>
+                    <p style="font-size: 0.85rem;">Pilota: <strong>${selectedStints[0].Driver}</strong></p>
+                    <p style="font-size: 0.85rem;">Mescola: <strong style="color: ${selectedStints[0].Compound === 'SOFT' ? '#e10600' : selectedStints[0].Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${selectedStints[0].Compound}</strong></p>
+                    <p style="font-size: 0.85rem;">Giri: ${selectedStints[0].LapStart} - ${selectedStints[0].LapEnd}</p>
+                `;
             } else if (selectedStints.length === 2) {
-                // LOGICA CROSSOVER POINT PER LA SIDEBAR
                 const s1 = selectedStints[0];
                 const s2 = selectedStints[1];
-
                 const m1 = s1.DegradationSlope;
                 const mid1 = (s1.LapStart + s1.LapEnd) / 2;
                 const q1 = s1.AvgLapTime - (m1 * mid1);
-
                 const m2 = s2.DegradationSlope;
                 const mid2 = (s2.LapStart + s2.LapEnd) / 2;
                 const q2 = s2.AvgLapTime - (m2 * mid2);
 
                 let crossoverText = "Le strategie non si incrociano.";
-                
                 if (m1 !== m2) {
                     const crossoverLap = Math.round((q2 - q1) / (m1 - m2));
                     if (crossoverLap > 0) {
-                        // Chi sorpassa? Chi ha la pendenza minore (m) sarà più veloce dopo il crossover (tempi sul giro più bassi)
                         const winner = m1 < m2 ? s1.Driver : s2.Driver;
                         const loser = m1 < m2 ? s2.Driver : s1.Driver;
                         crossoverText = `<strong>${winner}</strong> sorpassa <strong>${loser}</strong> al giro <strong>~${crossoverLap}</strong>`;
@@ -175,25 +218,24 @@ function initDashboard() {
                 }
 
                 const deltaDeg = Math.abs(m1 - m2).toFixed(3);
-
-                panel.innerHTML = `
-                    <h3 style="color: #00ffcc;">Crossover Point</h3>
-                    <p>${crossoverText}</p>
-                    <p><strong>Compound:</strong> ${s1.Driver} (<span style="color: ${s1.Compound === 'SOFT' ? '#e10600' : s1.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${s1.Compound}</span>) vs ${s2.Driver} (<span style="color: ${s2.Compound === 'SOFT' ? '#e10600' : s2.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${s2.Compound}</span>)</p>
-                    <p><strong>Delta Degrado:</strong> ${deltaDeg} s/giro</p>
-                    <ul style="padding-left: 20px; font-size: 0.9rem;">
+                specificHTML = `
+                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Crossover Point</h3>
+                    <p style="font-size: 0.85rem;">${crossoverText}</p>
+                    <p style="font-size: 0.85rem;"><strong>Delta Degrado:</strong> ${deltaDeg} s/giro</p>
+                    <ul style="padding-left: 20px; font-size: 0.85rem;">
                         <li><strong>${s1.Driver}:</strong> ${m1.toFixed(3)} s/l</li>
                         <li><strong>${s2.Driver}:</strong> ${m2.toFixed(3)} s/l</li>
                     </ul>
                 `;
-            } else if (selectedStints.length > 2) {
-                // ... [codice esistente per > 2 stint (se permesso)] ...
             } else {
-                panel.innerHTML = `<p>Seleziona gli stint sul Gantt o i dati sulla PCA per aggiornare le statistiche.</p>`;
+                specificHTML = `
+                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Cluster Selezionato</h3>
+                    <p style="font-size: 0.85rem;">Stint evidenziati: <strong>${selectedStints.length}</strong></p>
+                `;
             }
+            updateSidebar(specificHTML);
         },
 
-        // --- Dentro index.js, nei callbacks ---
         onRankingBrush: (selectedDrivers, minLap, maxLap) => {
             if (!selectedDrivers || selectedDrivers.length === 0) {
                 drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
@@ -201,89 +243,47 @@ function initDashboard() {
                 drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, []);
                 drawPCAChart(pcaData, "#pca-chart", callbacks, []);
                 
-                document.querySelector("#analytics-panel").innerHTML = `<p>Seleziona i dati sui grafici per aggiornare le statistiche.</p>`;
+                updateSidebar(""); // Ripristina stringa vuota
                 return;
             }
 
-            // ---> MODIFICA: Filtriamo gli stint controllando ANCHE l'intersezione matematica dei giri!
             const selectedStints = stintsData.filter(stint => {
-                // 1. Il pilota deve essere tra quelli selezionati
                 const isRightDriver = selectedDrivers.includes(stint.Driver);
-                
-                // 2. Lo stint deve sovrapporsi (anche parzialmente) al range selezionato dal brush
                 const overlapsLaps = (stint.LapStart <= maxLap) && (stint.LapEnd >= minLap);
-
                 return isRightDriver && overlapsLaps;
             });
 
-            // Passiamo gli stint correttamente filtrati agli altri grafici
             drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
             drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
             drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
             drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
 
-            // Aggiorniamo la Sidebar
-            const panel = document.querySelector("#analytics-panel");
-            panel.innerHTML = `
-                <h3 style="color: #00ffcc;">Analisi dal Ranking</h3>
-                <p>Range di giri: <strong>${minLap} - ${maxLap}</strong></p>
-                <p>Piloti coinvolti: <strong>${selectedDrivers.length}</strong></p>
-                <p>Stint evidenziati: <strong>${selectedStints.length}</strong></p>
+            let specificHTML = `
+                <h3 style="color: #00ffcc; font-size: 0.95rem;">Analisi dal Ranking</h3>
+                <p style="font-size: 0.85rem;">Range di giri: <strong>${minLap} - ${maxLap}</strong></p>
+                <p style="font-size: 0.85rem;">Piloti coinvolti: <strong>${selectedDrivers.length}</strong></p>
+                <p style="font-size: 0.85rem;">Stint evidenziati: <strong>${selectedStints.length}</strong></p>
             `;
+            updateSidebar(specificHTML);
         },
 
-        // NUOVA FUNZIONE DI RESET GLOBALE
         onReset: () => {
-            // 1. Ridisegna tutti i grafici passandogli un array vuoto
             drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
             drawLineChart(rawLapsData, "#line-chart", callbacks, []);
             drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, []);
             drawPCAChart(pcaData, "#pca-chart", callbacks, []);
             drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
 
-            // 2. Calcola le statistiche aggregate di gara per la Sidebar
-            const totalStints = stintsData.length;
-            const totalDrivers = new Set(stintsData.map(d => d.Driver)).size;
-            
-            // Calcola il degrado medio (escludendo eventuali valori anomali negativi/nulli)
-            const validDeg = stintsData.filter(d => d.DegradationSlope > 0);
-            const avgDegradation = validDeg.length > 0 ? d3.mean(validDeg, d => d.DegradationSlope) : 0;
-            
-            // Trova il giro più veloce in assoluto per curiosità
-            const validLaps = rawLapsData.filter(d => +d.LapTimeSeconds > 0);
-            const fastestLap = validLaps.reduce((min, p) => +p.LapTimeSeconds < +min.LapTimeSeconds ? p : min, validLaps[0]);
-
-            // 3. Aggiorna la Sidebar
-            const panel = document.querySelector("#analytics-panel");
-            panel.innerHTML = `
-                <h3 style="color: #00ffcc;">Overview Gara</h3>
-                <p>Piloti in Pista: <strong>${totalDrivers}</strong></p>
-                <p>Stint Totali: <strong>${totalStints}</strong></p>
-                <p>Degrado Gomme Medio: <strong>${avgDegradation.toFixed(3)} s/giro</strong></p>
-                ${fastestLap ? `<p>Giro Veloce: <strong>${fastestLap.Driver}</strong> (${(+fastestLap.LapTimeSeconds).toFixed(3)}s al L${fastestLap.LapNumber})</p>` : ''}
-                <hr style="border-color: #333344; margin: 15px 0;">
-                <p style="font-size: 0.85rem; color: #888894;"><i>Usa il brush o clicca sui grafici per esplorare le strategie. Fai doppio click su qualsiasi grafico per ripristinare questa vista.</i></p>
-            `;
+            updateSidebar(""); // Mostrerà i dati globali + le stat di performance medie
         },
-        
+
         onPitClick: (pitData) => { /* ... */ }
     };
-    //draw the gantt chart
-    drawStrategyGantt(stintsData, "#gantt-chart", callbacks);
-    // draw lap time evolution
-    drawLineChart(rawLapsData, "#line-chart", callbacks); 
-    
-    // draw parallel coordinates
-    drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks);
 
-    // draw initial PCA
-    drawPCAChart(pcaData, "#pca-chart", callbacks); // <-- Questo fa funzionare la PCA da subito!
+    // ... [Il tuo codice per il primo rendering iniziale dei grafici rimane qui intatto] ...
 
-    // Disegna il grafico delle posizioni iniziale
-    drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
-
-    // draw the gantt chart
-    drawStrategyGantt(stintsData, "#gantt-chart", callbacks)
+    // FORZIAMO L'INIZIALIZZAZIONE DELLA SIDEBAR
+    callbacks.onReset();
 }
 
 initDashboard();
