@@ -56,6 +56,9 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
     const xScale = d3.scaleLinear().domain([xExt[0] - padX, xExt[1] + padX]).range([0, innerWidth]);
     const yScale = d3.scaleLinear().domain([yExt[0] - padY, yExt[1] + padY]).range([innerHeight, 0]); 
 
+    const rScale = d3.scaleLinear()
+        .domain(d3.extent(data, d => d.StintLength)) // Prende il [minGiri, maxGiri]
+        .range([3, 12]); // Traduce in un raggio visivo: stint corto = 3px, lungo = 12px
     // 3. ASSI
     g.append("g")
         .attr("transform", `translate(0,${innerHeight})`)
@@ -89,7 +92,7 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
         .attr("class", "point")
         .attr("cx", d => xScale(d.PC1))
         .attr("cy", d => yScale(d.PC2))
-        .attr("r", 6) // Dimensione fissa a 6 pixel per tutti i punti
+        .attr("r", d => rScale(d.StintLength))
         .attr("fill", d => COMPOUND_COLORS[d.Compound] || "#888")
         .attr("stroke", d => {
             if (selectedStints.some(s => s.StintID === d.StintID)) return "#00ff00"; // Bordo verde se selezionato
