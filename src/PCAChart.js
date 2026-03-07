@@ -128,18 +128,47 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
         });
 
     // 6. FUNZIONE BRUSHING (Filtro multiplo)
+    // 6. FUNZIONE BRUSHING (Filtro multiplo combinato)
     function brushed(event) {
         const selection = event.selection;
         if (!selection) {
+            // Se l'utente clicca a vuoto, resetta la vista PCA
             if (callbacks && callbacks.onStintClick) callbacks.onStintClick([]);
             return;
         }
+
         const [[x0, y0], [x1, y1]] = selection;
-        const selected = data.filter(d => {
+
+        // 1. Trova i punti fisicamente dentro il rettangolo del brush
+        const geometricallySelected = data.filter(d => {
             const cx = xScale(d.PC1);
             const cy = yScale(d.PC2);
             return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
         });
-        if (callbacks && callbacks.onStintClick) callbacks.onStintClick(selected);
+
+        let finalSelection = [];
+
+        // 2. LOGICA DI COMBINAZIONE
+        if (selectedStints && selectedStints.length > 0) {
+            // Se c'erano già stint selezionati (es. dal Gantt), facciamo l'INTERSEZIONE (AND)
+            // Manteniamo solo i punti che sono nel brush E che erano già evidenziati
+            finalSelection = geometricallySelected.filter(pcaPoint => 
+                selectedStints.some(s => s.Driver === pcaPoint.Driver && s.StintNumber === pcaPoint.StintNumber)
+            );
+
+            // Opzionale: Se l'utente fa un brush su un'area dove non c'erano stint evidenziati, 
+            // assumiamo che voglia fare una NUOVA selezione da zero (sovrascrittura intelligente)
+            if (finalSelection.length === 0) {
+                finalSelection = geometricallySelected;
+            }
+        } else {
+            // Se non c'era nessuna selezione precedente, usiamo semplicemente i punti del brush
+            finalSelection = geometricallySelected;
+        }
+
+        // 3. Propaga la selezione combinata al resto della dashboard
+        if (callbacks && callbacks.onStintClick) {
+            callbacks.onStintClick(finalSelection);
+        }
     }
 }
