@@ -137,12 +137,11 @@ export function drawStrategyGantt(rawData, containerId, callbacks, selectedStint
         .attr("width", d => Math.max(0, xScale(d.LapEnd) - xScale(d.LapStart)))
         .attr("height", yScale.bandwidth())
         .attr("fill", d => `url(#grad-${d.Compound})`)
-        .style("opacity", d => selectedStints.length > 0 ? (isStintSelected(d) ? 1 : 0.15) : 1)
-        // MODIFICA 3: Applica il bordo verde fin dal primo rendering in base a selectedStints
+        // Opacità rimossa! I colori rimarranno sempre accesi.
         .attr("stroke", d => isStintSelected(d) ? "#00ff00" : "#15151e")
         .attr("stroke-width", d => isStintSelected(d) ? 3 : 1.5)
         .style("cursor", "pointer")
-        
+            
         .on("mouseover", function(event, d) {
             d3.select(this).attr("stroke", "#ffffff").attr("stroke-width", 2);
             tooltip.classed("hidden", false)
