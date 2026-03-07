@@ -10,19 +10,17 @@ const COMPOUND_COLORS = {
 };
 
 export function drawParallelCoordinates(rawData, containerId, callbacks, selectedStints = []) {
-    // 1. AGGREGAZIONE DATI (Da Giri singoli a Medie per Stint)
+    // 1. AGGREGAZIONE DATI
     const stintsMap = new Map();
     let currentStint = null;
     let prevLap = null;
 
-    // Ordina i dati per pilota e numero di giro
     const sortedData = rawData.slice().sort((a,b) => d3.ascending(a.Driver, b.Driver) || d3.ascending(+a.LapNumber, +b.LapNumber));
 
     sortedData.forEach(d => {
         const lapNum = +d.LapNumber;
         const tyreLife = +d.TyreLife;
         
-        // Crea un nuovo stint se: cambia pilota, gomma più nuova (pit stop), o cambia mescola
         if (!currentStint || d.Driver !== prevLap.Driver || tyreLife < prevLap.TyreLife || d.Compound !== prevLap.Compound) {
             if (currentStint && currentStint.laps.length > 0) stintsMap.set(currentStint.id, currentStint);
             currentStint = {
@@ -37,7 +35,6 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         
         currentStint.LapEnd = lapNum;
         
-        // Aggiungiamo solo i giri validi (no outlap lentissimi) ai calcoli della media
         if (+d.Sector1Seconds > 0 && +d.Sector2Seconds > 0 && +d.Sector3Seconds > 0) {
             currentStint.laps.push({
                 s1: +d.Sector1Seconds,
@@ -51,7 +48,6 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
     });
     if (currentStint && currentStint.laps.length > 0) stintsMap.set(currentStint.id, currentStint);
 
-    // Calcola le medie per ogni stint
     const validData = Array.from(stintsMap.values()).map(s => {
         return {
             Driver: s.Driver,
@@ -63,9 +59,9 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
             "Sector 3": d3.mean(s.laps, l => l.s3),
             "SpeedST": d3.mean(s.laps, l => l.speed),
             "Track Temp": d3.mean(s.laps, l => l.temp),
-            StintLength: s.laps.length
+            StintLength: s.laps.length 
         };
-    }).filter(d => d.StintLength > 2); // Escludiamo stint finti o brevissimi (meno di 3 giri)
+    }).filter(d => d.StintLength > 2);
 
     if (!validData || validData.length === 0) return;
     const hasSelection = selectedStints && selectedStints.length > 0;
@@ -90,27 +86,22 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
     const g = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // 3. I NUOVI ASSI
-    const dimensions = ["Compound", "Sector 1", "Sector 2", "Sector 3", "SpeedST", "Track Temp"];
+    // 3. I NUOVI ASSI NUMERICI
+    const dimensions = ["StintLength", "Sector 1", "Sector 2", "Sector 3", "SpeedST", "Track Temp"];
 
     // 4. SCALE
     const y = {};
     dimensions.forEach(dim => {
-        if (dim === "Compound") {
-            const compounds = Array.from(new Set(validData.map(d => d[dim])));
-            y[dim] = d3.scalePoint().domain(compounds).range([innerHeight, 0]).padding(0.5);
-        } else if (dim.includes("Sector")) {
-            // Per i Tempi: i valori bassi (i più veloci/migliori) vanno posizionati in alto!
+        if (dim.includes("Sector")) {
             y[dim] = d3.scaleLinear().domain(d3.extent(validData, d => d[dim])).range([0, innerHeight]); 
         } else {
-            // Per Velocità e Temp: i valori più alti vanno in alto
             y[dim] = d3.scaleLinear().domain(d3.extent(validData, d => d[dim])).range([innerHeight, 0]);
         }
     });
 
     const x = d3.scalePoint().range([0, innerWidth]).padding(0.5).domain(dimensions);
 
-    // 5. DISEGNO LINEE
+    // 5. DISEGNO LINEE E INTERAZIONI (Hover e CLICK)
     const lineGenerator = d => d3.line()(dimensions.map(p => [x(p), y[p](d[p])]));
     const tooltip = d3.select("#tooltip");
 
@@ -125,6 +116,7 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         .style("stroke", d => COMPOUND_COLORS[d.Compound] || COMPOUND_COLORS["UNKNOWN"])
         .style("stroke-width", 1)
         .style("transition", "opacity 0.2s")
+        .style("cursor", "pointer") // Cursore a manina per indicare che è cliccabile
         .on("mouseover", function(event, d) {
             d3.select(this).style("stroke-width", 3).style("opacity", 1).raise();
             
@@ -134,16 +126,23 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
                     <div>Giri: ${d.LapStart} - ${d.LapEnd} (${d.StintLength} totali)</div>
                     <div>Avg Sec 1: <strong>${d["Sector 1"].toFixed(3)}s</strong></div>
                     <div>Avg Sec 2: <strong>${d["Sector 2"].toFixed(3)}s</strong></div>
-                    <div>Avg Sec 3: <strong>${d["Sector 3"].toFixed(3)}s</strong></div>
-                    <div>Avg Speed: <strong>${d["SpeedST"].toFixed(1)} km/h</strong></div>
-                    <div>Avg Temp: <strong>${d["Track Temp"].toFixed(1)} °C</strong></div>
+                    <div style="margin-top: 5px; font-size: 0.8em; color: #00ffcc;">Click per selezionare questo stint!</div>
                 `)
                 .style("left", (event.pageX + 15) + "px")
                 .style("top", (event.pageY - 28) + "px");
         })
+        .on("mousemove", function(event) {
+            tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
+        })
         .on("mouseout", function() {
             updateLines(); 
             tooltip.classed("hidden", true);
+        })
+        .on("click", function(event, d) {
+            // ---> NOVITÀ: Permette di selezionare una linea cliccandola, come nella PCA!
+            if (callbacks && callbacks.onPCPBrush) {
+                callbacks.onPCPBrush([d]); // Passiamo la linea singola isolandola nel resto della dashboard
+            }
         });
 
     // 6. DISEGNO DEGLI ASSI E LABEL
@@ -163,8 +162,7 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         .text(d => d)
         .style("fill", "#f5f5f5")
         .style("font-weight", "bold")
-        .style("font-size", "11px")
-        .style("cursor", "ew-resize");
+        .style("font-size", "11px");
 
     // 7. LOGICA DI BRUSHING MULTIPLO
     const selections = new Map();
@@ -172,32 +170,31 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
     axes.append("g")
         .attr("class", "brush")
         .each(function(d) {
-            d3.select(this).call(y[d].brush = d3.brushY()
-                .extent([[-10, 0], [10, innerHeight]])
-                .on("start brush end", brushed)
+            d3.select(this).call(
+                d3.brushY()
+                  .extent([[-15, 0], [15, innerHeight]])
+                  .on("start brush end", function(event) {
+                      brushed(event, d);
+                  })
             );
         });
 
-    function brushed({selection}, dim) {
+    function brushed(event, dim) {
+        const selection = event.selection;
         if (selection === null) {
             selections.delete(dim);
         } else {
-            if (dim === "Compound") {
-                const domain = y[dim].domain();
-                const range = domain.map(d => y[dim](d));
-                const selectedCompounds = domain.filter((d, i) => selection[0] <= range[i] && range[i] <= selection[1]);
-                selections.set(dim, selectedCompounds);
-            } else {
-                selections.set(dim, selection.map(y[dim].invert));
-            }
+            const val1 = y[dim].invert(selection[0]);
+            const val2 = y[dim].invert(selection[1]);
+            selections.set(dim, [Math.min(val1, val2), Math.max(val1, val2)]);
         }
-        updateLines(true); 
+        
+        // ---> FIX ANTI-LAG: Propaghiamo ai 4 grafici esterni SOLO quando il mouse viene rilasciato! ("end")
+        updateLines(event.type === "end"); 
     }
 
-    // Identifica se questa linea è tra quelle cliccate negli altri grafici
     function isStintSelected(d) {
         if (!hasSelection) return false;
-        // Controlla se c'è overlap tra lo stint aggregato e gli stint passati dalla selezione
         return selectedStints.some(s => s.Driver === d.Driver && Math.max(s.LapStart, d.LapStart) <= Math.min(s.LapEnd, d.LapEnd));
     }
 
@@ -205,26 +202,19 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         if (hasSelection && !isStintSelected(d)) return false;
 
         for (let [dim, sel] of selections) {
-            if (dim === "Compound") {
-                if (!sel.includes(d[dim])) return false;
-            } else {
-                const min = Math.min(sel[0], sel[1]);
-                const max = Math.max(sel[0], sel[1]);
-                if (d[dim] < min || d[dim] > max) return false;
-            }
+            if (d[dim] < sel[0] || d[dim] > sel[1]) return false;
         }
         return true;
     }
 
-    function updateLines(isUserBrushing = false) {
+    function updateLines(propagateToDashboard = false) {
         lines.style("opacity", d => {
-            if (selections.size === 0 && !hasSelection) return 0.25; // Opacità base leggibile
-            return isLineActive(d) ? 0.9 : 0.02; 
+            if (selections.size === 0 && !hasSelection) return 0.4;
+            return isLineActive(d) ? 0.9 : 0.05; 
         })
         .style("stroke-width", d => ((selections.size > 0 || hasSelection) && isLineActive(d) ? 2.5 : 1));
 
-        // Se l'utente usa il brush del PCP, invia i dati aggregati a index.js
-        if (isUserBrushing && callbacks && callbacks.onPCPBrush) {
+        if (propagateToDashboard && callbacks && callbacks.onPCPBrush) {
             const activeStints = selections.size === 0 ? [] : validData.filter(isLineActive);
             callbacks.onPCPBrush(activeStints);
         }

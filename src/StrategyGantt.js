@@ -10,10 +10,9 @@ const COMPOUND_COLORS = {
     "UNKNOWN": "#888888"
 };
 
-// Array globale per tracciare le selezioni (Crossover point)
-let selectedStints = [];
-
-export function drawStrategyGantt(rawData, containerId, callbacks) {
+// MODIFICA 1: Eliminata la variabile let selectedStints locale.
+// MODIFICA 2: Aggiunto selectedStints = [] come parametro per ricevere lo stato globale
+export function drawStrategyGantt(rawData, containerId, callbacks, selectedStints = []) {
     // 1. PULIZIA E PREPARAZIONE DATI
     const data = rawData.map(d => ({
         ...d,
@@ -28,34 +27,24 @@ export function drawStrategyGantt(rawData, containerId, callbacks) {
 
     // 2. SETUP CONTENITORE E DIMENSIONI
     const container = d3.select(containerId);
-    container.selectAll("*").remove(); // Pulisce render precedenti
+    container.selectAll("*").remove();
 
     const containerNode = container.node();
-    const width = containerNode.clientWidth;
-    const height = containerNode.clientHeight;
+    const width = containerNode.clientWidth || 800;
+    const height = containerNode.clientHeight || 400;
     
-    // --> MIGLIORIA 1: Margin left aumentato a 65 per non tagliare i nomi lunghi
-  // 1. Riduci il margine superiore (da 20 a 5)
-const margin = { top: 5, right: 30, bottom: 30, left: 65 }; 
-   const innerWidth = width - margin.left - margin.right;
+    const margin = { top: 5, right: 30, bottom: 30, left: 65 }; 
+    const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
     const svg = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
         .style("display", "block")
+        // Doppio click per reset globale (invia array vuoto a index.js)
         .on("dblclick", function() {
-            // SVUOTA L'ARRAY GLOBALE AL DOPPIO CLICK
-            selectedStints = [];
-            
-            // Resetta i contorni di tutti gli stint
-            svg.selectAll(".stint-rect")
-                .attr("stroke", "#15151e")
-                .attr("stroke-width", 1.5);
-                
-            // Propaga l'array vuoto agli altri grafici per resettare la dashboard
             if (callbacks && callbacks.onStintClick) {
-                callbacks.onStintClick(selectedStints);
+                callbacks.onStintClick([]);
             }
         });
 
@@ -70,12 +59,12 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
         gradient.append("stop")
             .attr("offset", "0%")
             .attr("stop-color", COMPOUND_COLORS[compound])
-            .attr("stop-opacity", 1); // Gomma fresca
+            .attr("stop-opacity", 1); 
 
         gradient.append("stop")
             .attr("offset", "100%")
             .attr("stop-color", COMPOUND_COLORS[compound])
-            .attr("stop-opacity", 0.3); // Gomma usurata
+            .attr("stop-opacity", 0.3); 
     });
 
     const g = svg.append("g")
@@ -89,13 +78,12 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
         .domain([1, maxLap])
         .range([0, innerWidth]);
 
-    // --> MIGLIORIA 2: Padding ridotto a 0.15 per rendere le barre più "cicciotte"
-   const yScale = d3.scaleBand()
-    .domain(drivers)
-    .range([0, innerHeight])
-    .padding(0.15);
+    const yScale = d3.scaleBand()
+        .domain(drivers)
+        .range([0, innerHeight])
+        .padding(0.15);
 
-    // --> MIGLIORIA 4: Aggiunta Griglia Verticale (Disegnata PRIMA delle barre per stare sullo sfondo)
+    // Griglia Verticale
     g.append("g")
         .attr("class", "grid")
         .attr("color", "#333344")
@@ -104,15 +92,14 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
         .call(d3.axisBottom(xScale)
             .tickSize(innerHeight)
             .tickFormat("") 
-            .ticks(Math.round(maxLap / 5)) // Mostra una linea verticale ogni ~5 giri
+            .ticks(Math.round(maxLap / 5)) 
         )
-        .select(".domain").remove(); // Rimuove la linea di base
+        .select(".domain").remove();
 
     // 5. ASSI
     g.append("g")
         .attr("transform", `translate(0,${innerHeight})`)
         .call(d3.axisBottom(xScale)
-            // --> MIGLIORIA 3: Ticks sull'asse X per evitare sovrapposizioni (uno ogni ~5 giri)
             .ticks(Math.round(maxLap / 5))
             .tickFormat(d => `L${d}`)
         )
@@ -127,10 +114,13 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
         .style("font-weight", "bold")
         .style("font-size", "12px");
 
-    g.select(".domain").remove(); // Rimuove asse Y per pulizia visiva
+    g.select(".domain").remove();
 
-    // 6. TOOLTIP
+    // 6. TOOLTIP E HELPER SELEZIONE
     const tooltip = d3.select("#tooltip");
+    
+    // Controlla l'array globale passato da index.js
+    const isStintSelected = (d) => selectedStints.some(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
 
     // 7. DISEGNO DEGLI STINT
     const stintsGroup = g.append("g").attr("class", "stints-layer");
@@ -145,11 +135,11 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
         .attr("width", d => Math.max(0, xScale(d.LapEnd) - xScale(d.LapStart)))
         .attr("height", yScale.bandwidth())
         .attr("fill", d => `url(#grad-${d.Compound})`)
-        .attr("stroke", "#15151e")
-        .attr("stroke-width", 1.5)
+        // MODIFICA 3: Applica il bordo verde fin dal primo rendering in base a selectedStints
+        .attr("stroke", d => isStintSelected(d) ? "#00ff00" : "#15151e")
+        .attr("stroke-width", d => isStintSelected(d) ? 3 : 1.5)
         .style("cursor", "pointer")
         
-        // INTERAZIONE: HOVER
         .on("mouseover", function(event, d) {
             d3.select(this).attr("stroke", "#ffffff").attr("stroke-width", 2);
             tooltip.classed("hidden", false)
@@ -167,34 +157,26 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
             tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
         })
         .on("mouseout", function(event, d) {
-            // FIX: Usiamo Driver e StintNumber invece di StintID
-            const isSelected = selectedStints.some(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
+            const isSelected = isStintSelected(d);
             d3.select(this).attr("stroke", isSelected ? "#00ff00" : "#15151e")
                            .attr("stroke-width", isSelected ? 3 : 1.5);
             tooltip.classed("hidden", true);
         })
-        
-        // INTERAZIONE: CLICK
         .on("click", function(event, d) {
-            // FIX: Cerchiamo l'indice esatto usando Driver e StintNumber
-            const index = selectedStints.findIndex(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
+            // MODIFICA 4: Crea una copia locale dello stato per manipolarla
+            let newSelection = [...selectedStints];
+            const index = newSelection.findIndex(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
             
             if (index > -1) {
-                // SE ESISTE GIA': Lo rimuove (Deselezione)
-                selectedStints.splice(index, 1); 
+                newSelection.splice(index, 1); // Deseleziona
             } else {
-                // SE NON ESISTE: Lo aggiunge (mantenendo un massimo di 2 stint per il Crossover)
-                if (selectedStints.length >= 2) selectedStints.shift(); 
-                selectedStints.push(d);
+                if (newSelection.length >= 2) newSelection.shift(); 
+                newSelection.push(d); // Aggiunge (max 2)
             }
 
-            // Aggiorna contorno per evidenziare la nuova selezione/deselezione
-            g.selectAll(".stint-rect")
-                .attr("stroke", sd => selectedStints.some(s => s.Driver === sd.Driver && s.StintNumber === sd.StintNumber) ? "#00ff00" : "#15151e")
-                .attr("stroke-width", sd => selectedStints.some(s => s.Driver === sd.Driver && s.StintNumber === sd.StintNumber) ? 3 : 1.5);
-
+            // Invia i nuovi dati a index.js, che forzerà il re-render di tutti i grafici!
             if (callbacks && callbacks.onStintClick) {
-                callbacks.onStintClick(selectedStints);
+                callbacks.onStintClick(newSelection);
             }
         });
 
@@ -218,14 +200,12 @@ const margin = { top: 5, right: 30, bottom: 30, left: 65 };
             }
         });
 
-    // Linea verticale nera di separazione
     pitMarkers.append("line")
         .attr("x1", 0).attr("y1", 0)
         .attr("x2", 0).attr("y2", yScale.bandwidth())
         .attr("stroke", "#15151e")
         .attr("stroke-width", 2);
 
-    // Triangolo invertito rosso sopra la barra
     const triangle = d3.symbol().type(d3.symbolTriangle).size(30);
     pitMarkers.append("path")
         .attr("d", triangle)
