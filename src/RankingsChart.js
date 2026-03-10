@@ -81,32 +81,52 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     // Disegniamo i path per ogni pilota
     const linesGroup = svg.append("g").attr("class", "lines-group");
 
-    dataByDriver.forEach((laps, driver) => {
-         const teamColor = TEAM_COLORS[laps[0].Team] || "#888894";
-        
-        // Verifica se il pilota è tra quelli selezionati (per evidenziarlo)
-        const isSelected = selectedStints.some(s => s.Driver === driver);
+   dataByDriver.forEach((laps, driver) => {
+    const teamColor = TEAM_COLORS[laps[0].Team] || "#888894";
+    const isSelected = selectedStints.some(s => s.Driver === driver);
 
-        linesGroup.append("path")
-            .datum(laps)
-            .attr("fill", "none")
-            .attr("stroke", teamColor)
-            .attr("stroke-width", isSelected ? 4 : 1.5)
-            .attr("opacity", selectedStints.length > 0 && !isSelected ? 0.2 : 0.8)
-            .attr("d", line)
-            .style("cursor", "pointer")
-            .on("mouseover", function(event) {
-                if (!isSelected) d3.select(this).attr("stroke-width", 3).attr("opacity", 1);
-                d3.select("#tooltip").classed("hidden", false)
-                    .html(`<strong>Driver: ${driver}</strong>`)
-                    .style("left", (event.pageX + 10) + "px")
-                    .style("top", (event.pageY - 20) + "px");
-            })
-            .on("mouseout", function() {
-                if (!isSelected) d3.select(this).attr("stroke-width", 1.5).attr("opacity", selectedStints.length > 0 ? 0.2 : 0.8);
-                d3.select("#tooltip").classed("hidden", true);
-            });
-    });
+    linesGroup.append("path")
+        .datum(laps)
+        .attr("fill", "none")
+        .attr("stroke", teamColor)
+        .attr("stroke-width", isSelected ? 4 : 1.5)
+        .attr("opacity", selectedStints.length > 0 && !isSelected ? 0.2 : 0.8)
+        .attr("d", line)
+        .style("cursor", "pointer")
+        .on("mouseover", function(event) {
+            if (!isSelected) d3.select(this).attr("stroke-width", 3).attr("opacity", 1);
+            
+            // --- LOGICA DISTACCO FINALE ---
+            // 1. Identifichiamo l'ultimo giro della gara dai dati generali
+            const lastLapNumber = d3.max(data, d => +d.LapNumber);
+            const lastLapData = data.filter(d => +d.LapNumber === lastLapNumber);
+            
+            // 2. Troviamo il leader (vincitore) e il pilota corrente all'ultimo giro
+            const winner = lastLapData.find(d => +d.Position === 1);
+            const currentDriverFinal = lastLapData.find(d => d.Driver === driver);
+            
+            let timeInfo = "";
+            if (currentDriverFinal && winner) {
+                if (driver === winner.Driver) {
+                    timeInfo = `<br/><strong>WINNER</strong>`;
+                } else {
+                    // Calcolo del distacco (Gap) usando il tempo di inizio dell'ultimo giro
+                    const gap = currentDriverFinal.LapStartSeconds - winner.LapStartSeconds;
+                    timeInfo = `<br/>Gap: +${gap.toFixed(3)}s`;
+                }
+            }
+            // ------------------------------
+
+            d3.select("#tooltip").classed("hidden", false)
+                .html(`<strong>Driver: ${driver}</strong>${timeInfo}`) // Aggiunta info tempo
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 20) + "px");
+        })
+        .on("mouseout", function() {
+            if (!isSelected) d3.select(this).attr("stroke-width", 1.5).attr("opacity", selectedStints.length > 0 ? 0.2 : 0.8);
+            d3.select("#tooltip").classed("hidden", true);
+        });
+});
 
     // --- NUOVO: Funzione per gestire l'evento di brush ---
    // --- Dentro RankingsChart.js, alla fine della funzione brushed ---
