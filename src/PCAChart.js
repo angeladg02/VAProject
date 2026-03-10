@@ -66,14 +66,14 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
         .attr("color", "#888894")
         .append("text").attr("x", innerWidth).attr("y", 35)
         .attr("fill", "#f5f5f5").attr("text-anchor", "end")
-        .text(`PC1 (${explainedVariance[0].toFixed(1)}% variance)`);
+        .text(`PC1:Strategy & Endurance`);
 
     g.append("g")
         .call(d3.axisLeft(yScale).ticks(6))
         .attr("color", "#888894")
-        .append("text").attr("x", -10).attr("y", -15)
+        .append("text").attr("x", +100).attr("y", -15)
         .attr("fill", "#f5f5f5").attr("text-anchor", "end")
-        .text(`PC2 (${explainedVariance[1].toFixed(1)}% variance)`);
+        .text(`PC2: Wear & Performance Loss`);
 
     // 4. BRUSH RETTANGOLARE (Sempre in secondo piano per non bloccare il mouse)
     const brush = d3.brush()
@@ -126,6 +126,7 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
                 .attr("stroke-width", isSelected ? 3 : 1)
                 .attr("stroke", isSelected ? "#00ff00" : (d.Compound === "HARD" ? "#15151e" : "#ffffff"));
         });
+
 
     // 6. FUNZIONE BRUSHING (Filtro multiplo)
     // 6. FUNZIONE BRUSHING (Filtro multiplo combinato)

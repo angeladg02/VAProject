@@ -25,13 +25,13 @@ const TEAM_COLORS = {
     "Ferrari": "#e8002d",
     "McLaren": "#ff8000",
     "Mercedes": "#27f4d2",
-    "Red Bull Racing": "#3671c6",
+    "Red Bull ": "#3671c6",
     "Aston Martin": "#229971",
     "Alpine": "#0093cc",
     "Williams": "#64c4ff",
     "RB": "#6692ff",
     "Kick Sauber": "#52e252",
-    "Haas F1 Team": "#ffffff"
+    "Haas F1": "#ffffff"
 };
 
 function createLegends() {
@@ -39,35 +39,7 @@ function createLegends() {
     const compoundContainer = document.getElementById('compound-legend');
     compoundContainer.innerHTML = ''; 
 
-    // Spiegazione testuale rapida
-    const explanation = document.createElement('p');
-    explanation.style.cssText = "font-size: 0.75rem; color: #888; margin-bottom: 12px; line-height: 1.2;";
-    explanation.innerText = "L'opacità decrescente indica l'usura (fresca → consumata).";
-    compoundContainer.appendChild(explanation);
-
-    // Creazione delle barre per ogni mescola definita in COMPOUND_COLORS
-    Object.entries(COMPOUND_COLORS).forEach(([name, color]) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'compound-wear-row';
-        wrapper.style.cssText = "margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;";
-
-        wrapper.innerHTML = `
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold;">
-                <span>${name}</span>
-                <span style="font-weight: normal; opacity: 0.6;">Fresca → Consumata</span>
-            </div>
-            <div class="wear-bar" style="
-                height: 8px; 
-                border-radius: 4px; 
-                background: linear-gradient(to right, ${color} 100%, ${color} 30%);
-                opacity: 0.9;
-                background: linear-gradient(to right, ${color}, rgba(${hexToRgb(color)}, 0.2));
-            "></div>
-        `;
-        compoundContainer.appendChild(wrapper);
-    });
-
-    // Legenda Team
+     // Legenda Team
     const teamContainer = document.getElementById('team-legend');
     teamContainer.innerHTML = ''; // Pulisce prima di ricreare
     Object.entries(TEAM_COLORS).forEach(([name, color]) => {
@@ -76,6 +48,82 @@ function createLegends() {
         item.innerHTML = `<span class="color-box" style="background-color: ${color}"></span>${name}`;
         teamContainer.appendChild(item);
     });
+
+    // ============================
+// SIZE LEGEND (Stint Length)
+// ============================
+
+const sizeContainer = document.getElementById('size-legend');
+sizeContainer.innerHTML = '';
+
+sizeContainer.innerHTML = `
+<div class="size-legend" style="display:flex; flex-direction:row; align-items:center; gap:14px;">
+    <div class="size-item" style="display:flex; align-items:center; gap:4px;">
+        <svg width="20" height="20"><circle cx="10" cy="10" r="4" fill="#888"/></svg>
+        <span>Short</span>
+    </div>
+    <div class="size-item" style="display:flex; align-items:center; gap:4px;">
+        <svg width="20" height="20"><circle cx="10" cy="10" r="7" fill="#888"/></svg>
+        <span>Medium</span>
+    </div>
+    <div class="size-item" style="display:flex; align-items:center; gap:4px;">
+        <svg width="20" height="20"><circle cx="10" cy="10" r="10" fill="#888"/></svg>
+        <span>Long</span>
+    </div>
+</div>
+`;
+
+// ============================
+// EVENT LEGEND
+// ============================
+
+const eventContainer = document.getElementById('event-legend');
+eventContainer.innerHTML = '';
+
+eventContainer.innerHTML = `
+
+
+<div class="legend-item">
+    <svg width="18" height="18">
+<polygon points="0,0 14,0 7,12" fill="#ff3b3b"/>    </svg>
+    <span>Pit Stop</span>
+</div>
+
+<div class="legend-item">
+    <svg width="18" height="18">
+        <path d="M2 16 L2 2 L12 4 L12 10 L2 8 Z" fill="#ffd400"/>
+    </svg>
+    <span>Safety Car</span>
+</div>
+`;
+
+    // Spiegazione testuale rapida
+    //const explanation = document.createElement('p');
+    //explanation.style.cssText = "font-size: 0.75rem; color: #888; margin-bottom: 12px; line-height: 1.2;";
+    //explanation.innerText = "L'opacità decrescente indica l'usura (fresca → consumata).";
+    //compoundContainer.appendChild(explanation);
+
+    // Creazione delle barre per ogni mescola definita in COMPOUND_COLORS
+    Object.entries(COMPOUND_COLORS).forEach(([name, color], index) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'compound-wear-row';
+    wrapper.style.cssText = "margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;";
+
+    wrapper.innerHTML = `
+        <div style="display: flex; justify-content: space-between;gap: 12px; font-size: 0.75rem; font-weight: bold;">
+            <span>${name}</span>
+            ${index === 0 ? '<span style="font-weight: normal; opacity: 0.6;">Fresh → Worn</span>' : ''}
+        </div>
+        <div class="wear-bar" style="
+            height: 8px; 
+            border-radius: 4px; 
+            background: linear-gradient(to right, ${color}, rgba(${hexToRgb(color)}, 0.2));
+        "></div>
+    `;
+    compoundContainer.appendChild(wrapper);
+});
+
+   
 }
 function initDashboard() {
     
@@ -110,7 +158,7 @@ function initDashboard() {
     // Generiamo l'HTML statico che rimarrà sempre in cima al pannello Analytics
     const globalOverviewHTML = `
         <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #333344;">
-            <h3 style="color: #00ffcc; margin-top: 0; font-size: 0.95rem; text-transform: uppercase;">Race Overview</h3>
+           <!-- <h3 style="color: #00ffcc; margin-top: 0; font-size: 0.95rem; text-transform: uppercase;">Race Overview</h3> -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem;">
                 <div>Stints: <strong style="color: #fff;">${totalStints}</strong></div>
                 <div>Pit Stops: <strong style="color: #fff;">${totalPitStops}</strong></div>
@@ -146,7 +194,7 @@ function initDashboard() {
                 <h3 style="color: #888894; font-size: 0.85rem; text-transform: uppercase;">Performance Globale</h3>
                 <p style="font-size: 0.85rem;">Degrado Medio: <strong>${avgDegradation.toFixed(3)} s/giro</strong></p>
                 ${fastestLap ? `<p style="font-size: 0.85rem;">Giro Veloce: <strong>${fastestLap.Driver}</strong> (${(+fastestLap.LapTimeSeconds).toFixed(3)}s al L${fastestLap.LapNumber})</p>` : ''}
-                <p style="font-size: 0.8rem; color: #888894; margin-top: 15px;"><i>Usa il brush o clicca sui grafici per esplorare le strategie. Doppio click per ripristinare.</i></p>
+               <!-- <p style="font-size: 0.8rem; color: #888894; margin-top: 15px;"><i>Usa il brush o clicca sui grafici per esplorare le strategie. Doppio click per ripristinare.</i></p> -->
             `;
         }
         // Incolla tutto insieme

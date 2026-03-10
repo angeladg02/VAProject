@@ -75,7 +75,7 @@ html, body {
 
 /* --- SIDEBAR --- */
 .sidebar {
-    flex: 0 0 18%; /* Leggermente più larga per ospitare bene i nomi dei team */
+    flex: 0 0 16%; /* Leggermente più larga per ospitare bene i nomi dei team */
     background-color: #22222e;
     border-radius: 8px;
     padding: 15px;
@@ -98,48 +98,71 @@ html, body {
     }
 }
 
-/* --- LEGGENDE ORIGINALI --- */
-/* --- SIDEBAR LEGENDS --- */
-.sidebar-legends {
-    margin-top: auto; 
-    padding-top: 15px;
-    border-top: 1px solid #333;
-    
-    /* Contenitore per affiancare le due sezioni */
-    .legends-wrapper {
-        display: flex;
-        flex-direction: row; /* Affianca orizzontalmente */
-        gap: 20px;           /* Spazio tra le due leggende */
-        align-items: flex-start;
-    }
 
-    .legend-section {
-        flex: 1; /* Entrambe le sezioni prendono lo stesso spazio */
-        margin-bottom: 10px;
-        
-        h3 {
-            font-size: 0.75rem; /* Leggermente più piccolo per stare nei margini */
-            color: #888894;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            white-space: nowrap; /* Evita che il titolo vada a capo */
-        }
-    }
+/* --- SIDEBAR LEGENDS --- */
+
+.sidebar-legends {
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid #333;
 }
 
-.legend-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-    font-size: 0.8rem; /* Ridotto leggermente per ottimizzare lo spazio */
+/* layout generale verticale */
+.legends-wrapper{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
 
-    .color-box {
-        width: 10px;
-        height: 10px;
-        border-radius: 2px;
-        margin-right: 6px;
-        flex-shrink: 0;
-    }
+/* items orizzontali per Stint Length e Race Events */
+
+#size-legend,
+#event-legend{
+    display:flex;
+    flex-direction:row;
+    gap:14px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+/* riga Teams + Tyres */
+.legend-row{
+    display:flex;
+    gap:24px;
+}
+
+/* sezioni */
+.legend-section{
+    margin-bottom: 4px;
+}
+
+.legend-row .legend-section{
+  
+}
+
+/* titoli */
+.legend-section h3{
+    font-size:0.75rem;
+    color:#888894;
+    text-transform:uppercase;
+    margin-bottom:8px;
+    white-space:nowrap;
+}
+
+/* items */
+.legend-item{
+    display:flex;
+    align-items:center;
+    margin-bottom:5px;
+    font-size:0.8rem;
+}
+
+.legend-item .color-box{
+    width:10px;
+    height:10px;
+    border-radius:2px;
+    margin-right:6px;
+    flex-shrink:0;
 }
 /* --- TOOLTIP FLUTTUANTE --- */
 #tooltip {
