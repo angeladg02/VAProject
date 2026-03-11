@@ -144,22 +144,47 @@ g.append("g")
         .attr("stroke-width", d => isStintSelected(d) ? 3 : 1.5)
         .style("cursor", "pointer")
             
-        .on("mouseover", function(event, d) {
-            d3.select(this).attr("stroke", "#ffffff").attr("stroke-width", 2);
-            tooltip.classed("hidden", false)
-                .html(`
-                    <div style="margin-bottom:5px;"><strong>${d.Driver}</strong> - <span style="color:${COMPOUND_COLORS[d.Compound]}">${d.Compound}</span></div>
-                    <div>Giri: ${d.LapStart} - ${d.LapEnd}</div>
-                    <div>TyreLife Totale: ${d.TyreLifeStart + d.TotalLaps}</div>
-                    <div>Lap Time Medio: ${d.AvgLapTime.toFixed(3)}s</div>
-                    <div>Degrado: ${d.DegradationSlope.toFixed(3)} s/giro</div>
-                `)
-                .style("left", (event.pageX + 15) + "px")
-                .style("top", (event.pageY - 28) + "px");
-        })
-        .on("mousemove", function(event) {
-            tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
-        })
+       .on("mouseover", function(event, d) {
+    d3.select(this)
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", 2);
+
+    tooltip.classed("hidden", false)
+        .html(`
+            <div style="border-left: 4px solid ${COMPOUND_COLORS[d.Compound] || '#888'}; padding-left: 8px;">
+                <div style="font-weight: bold; font-size: 1rem; margin-bottom: 2px;">
+                    ${d.Driver} <span style="font-weight: normal; font-size: 0.8rem; color: #aaa;">- Stint #${d.StintNumber}</span>
+                </div>
+                <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
+                
+                <div style="margin-bottom: 5px; font-size: 0.9rem;">
+                    Compound: <strong style="color:${COMPOUND_COLORS[d.Compound]}">${d.Compound}</strong>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px; font-size: 0.85rem;">
+                    <div>Laps: <strong>${d.LapStart} - ${d.LapEnd}</strong></div>
+                    <div>Stint Length: <strong>${d.TotalLaps}</strong></div>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
+
+                <div style="font-size: 0.85rem;">
+                    <div>Avg Lap Time: <strong>${d.AvgLapTime.toFixed(3)}s</strong></div>
+                    <div>Degradation: <strong>${d.DegradationSlope.toFixed(3)} s/lap</strong></div>
+                    <div style="margin-top: 4px; color: #aaa; font-size: 0.75rem;">
+                        Total Tyre Life: ${d.TyreLifeStart + d.TotalLaps} laps
+                    </div>
+                </div>
+            </div>
+        `);
+
+    // Inizializza posizione (sarà rifinita da mousemove)
+    updateTooltipPosition(event);
+})
+.on("mousemove", function(event) {
+    updateTooltipPosition(event);
+})
+    
         .on("mouseout", function(event, d) {
             const isSelected = isStintSelected(d);
             d3.select(this).attr("stroke", isSelected ? "#00ff00" : "#15151e")
@@ -226,4 +251,20 @@ g.append("g")
             d3.select(this).attr("fill", "#e10600").attr("transform", "translate(0, -5) rotate(180)");
             tooltip.classed("hidden", true);
         });
+}
+function updateTooltipPosition(event) {
+    const tooltip = d3.select("#tooltip");
+    const tooltipNode = tooltip.node();
+    const tooltipWidth = tooltipNode.offsetWidth;
+    const pageWidth = window.innerWidth;
+    
+    // Se il tooltip eccede il bordo destro, spostalo a sinistra del cursore
+    let xPos = event.pageX + 15;
+    if (xPos + tooltipWidth > pageWidth) {
+        xPos = event.pageX - tooltipWidth - 15;
+    }
+
+    tooltip
+        .style("left", xPos + "px")
+        .style("top", (event.pageY - 28) + "px");
 }

@@ -131,21 +131,67 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         .style("stroke-width", 1.5)
         .style("opacity", 0.4)
         .style("cursor", "pointer")
-        .on("mouseover", function(event, d) {
-            d3.select(this).style("stroke-width", 4).style("opacity", 1).raise();
-            tooltip.classed("hidden", false)
-                .html(`
-                    <div style="margin-bottom:5px;"><strong>${d.Driver}</strong> - ${d.Compound}</div>
-                    <div>Giri: ${d.LapStart} - ${d.LapEnd}</div>
-                    <div>Avg Delta S1: <strong>+${d["S1 Delta"].toFixed(3)}s</strong></div>
-                    <div>Avg Delta S2: <strong>+${d["S2 Delta"].toFixed(3)}s</strong></div>
-                    <div>Avg Delta S3: <strong>+${d["S3 Delta"].toFixed(3)}s</strong></div>
-                    <div>Consistency (Std): <strong>${d["Consistency Std"].toFixed(3)}s</strong></div>
-                  
-                `)
-                .style("left", (event.pageX + 15) + "px")
-                .style("top", (event.pageY - 28) + "px");
-        })
+       .on("mouseover", function(event, d) {
+
+    d3.select(this)
+        .style("stroke-width", 4)
+        .style("opacity", 1)
+        .raise();
+
+    tooltip.classed("hidden", false)
+        .html(`
+            <div style="border-left:3px solid ${COMPOUND_COLORS[d.Compound] || '#888'}; padding-left:6px; max-width:220px">
+
+                <div style="font-weight:600; font-size:0.9rem;">
+                    ${d.Driver} 
+                    <span style="color:#aaa; font-weight:400">(${d.Compound})</span>
+                </div>
+
+                <div style="font-size:0.75rem; color:#aaa; margin-bottom:4px">
+                    Laps ${d.LapStart}-${d.LapEnd}
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 6px; font-size:0.78rem">
+
+                    <div>S1</div>
+                    <div style="color:#00ffcc">+${d["S1 Delta"].toFixed(3)}s</div>
+
+                    <div>S2</div>
+                    <div style="color:#00ffcc">+${d["S2 Delta"].toFixed(3)}s</div>
+
+                    <div>S3</div>
+                    <div style="color:#00ffcc">+${d["S3 Delta"].toFixed(3)}s</div>
+
+                    <div>Consistency</div>
+                    <div>${d["Consistency Std"].toFixed(3)}s</div>
+
+                    <div>Speed ST</div>
+                    <div>${d["Speed ST"] ? d["Speed ST"].toFixed(0) : "N/A"} km/h</div>
+
+                </div>
+            </div>
+        `);
+
+    // --- Posizionamento intelligente ---
+    const tooltipWidth = 220;
+    const tooltipHeight = 120;
+
+    let x = event.pageX + 15;
+    let y = event.pageY - 20;
+
+    if (x + tooltipWidth > window.innerWidth) {
+        x = event.pageX - tooltipWidth - 15;
+    }
+
+    if (y + tooltipHeight > window.innerHeight) {
+        y = event.pageY - tooltipHeight - 15;
+    }
+
+    tooltip
+        .style("left", x + "px")
+        .style("top", y + "px");
+
+})
         .on("mouseout", function() { updateLines(); tooltip.classed("hidden", true); })
         .on("click", (event, d) => callbacks?.onPCPBrush?.([d]));
 

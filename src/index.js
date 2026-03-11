@@ -42,24 +42,6 @@ function createLegends() {
 
     // Rimosso il blocco relativo a teamContainer (Team Legend)
 
-    /*// 2. SIZE LEGEND (Stint Length)
-    const sizeContainer = document.getElementById('size-legend');
-    sizeContainer.innerHTML = `
-        <div class="size-legend" style="display:flex; flex-direction:row; align-items:center; gap:14px;">
-            <div class="size-item" style="display:flex; align-items:center; gap:4px;">
-                <svg width="16" height="16"><circle cx="8" cy="8" r="3" fill="#888"/></svg>
-                <span>Short</span>
-            </div>
-            <div class="size-item" style="display:flex; align-items:center; gap:4px;">
-                <svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="#888"/></svg>
-                <span>Medium</span>
-            </div>
-            <div class="size-item" style="display:flex; align-items:center; gap:4px;">
-                <svg width="16" height="16"><circle cx="8" cy="8" r="8" fill="#888"/></svg>
-                <span>Long</span>
-            </div>
-        </div>
-    `;*/
 
     // 3. EVENT LEGEND
     const eventContainer = document.getElementById('event-legend');
@@ -206,35 +188,41 @@ const globalOverviewHTML = `
     // 3. CALLBACKS DEI GRAFICI AGGIORNATI
     // =========================================================
     const callbacks = {
-        onStintClick: (selectedStints) => {
-            drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
-            drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
-            drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
-            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
-            drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
+      onStintClick: (selectedData) => {
+    if (!selectedData || selectedData.length === 0) {
+        callbacks.onReset();
+        return;
+    }
 
-            let specificHTML = "";
-            if (selectedStints.length === 1) {
-                specificHTML = `
-                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Dettaglio Stint</h3>
-                    <p style="font-size: 0.85rem;">Pilota: <strong>${selectedStints[0].Driver}</strong></p>
-                    <p style="font-size: 0.85rem;">Mescola: <strong style="color: ${selectedStints[0].Compound === 'SOFT' ? '#e10600' : selectedStints[0].Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${selectedStints[0].Compound}</strong></p>
-                    <p style="font-size: 0.85rem;">Giri: ${selectedStints[0].LapStart} - ${selectedStints[0].LapEnd}</p>
-                    <p style="font-size: 0.85rem;">Degrado: <strong>${(+selectedStints[0].DegradationSlope).toFixed(3)} s/giro</strong></p>
-                `;
-            } else if (selectedStints.length > 1) {
-                const avgDeg = d3.mean(selectedStints, s => +s.DegradationSlope) || 0;
-                const listItems = selectedStints.map(s => 
-                    `<li><strong>${s.Driver}</strong> (${s.Compound}): ${(+s.DegradationSlope).toFixed(3)} s/l</li>`
-                ).join(""); 
-                specificHTML = `
-                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Analisi Comparata (${selectedStints.length} Stint)</h3>
-                    <p style="font-size: 0.85rem;">Degrado Medio: <strong>${avgDeg.toFixed(3)} s/giro</strong></p>
-                    <ul style="padding-left: 20px; font-size: 0.85rem;">${listItems}</ul>
-                `;
-            }
-            updateSidebar(specificHTML);
-        },
+    let finalSelection = [];
+    const driverName = selectedData[0].Driver;
+
+    // CASO A: Click dal Ranking (selectedData ha info generali sul pilota, ma non StintID specifici)
+    // O se vogliamo forzare la selezione completa del pilota
+    if (!selectedData[0].StintID) {
+        finalSelection = stintsData.filter(s => s.Driver === driverName);
+    } 
+    // CASO B: Click da Gantt, PCA o PCP (selectedData contiene già gli stint specifici)
+    else {
+        finalSelection = selectedData;
+    }
+
+    // AGGIORNIAMO TUTTI I GRAFICI con la selezione corretta (singola o multipla)
+    drawStrategyGantt(stintsData, "#gantt-chart", callbacks, finalSelection);
+    drawLineChart(rawLapsData, "#line-chart", callbacks, finalSelection);
+    drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, finalSelection);
+    drawPCAChart(pcaData, "#pca-chart", callbacks, finalSelection);
+    drawRankingsChart(rawLapsData, "#position-chart", callbacks, finalSelection);
+
+    // Sidebar dinamica
+    const isFullDriver = finalSelection.length > 1;
+    let html = `
+        <h3 style="color: #00ffcc;">${isFullDriver ? 'Profilo Pilota' : 'Dettaglio Stint'}</h3>
+        <p>Pilota: <strong>${driverName}</strong></p>
+        ${!isFullDriver ? `<p>Giri: ${finalSelection[0].LapStart} - ${finalSelection[0].LapEnd}</p>` : `<p>Stint totali: ${finalSelection.length}</p>`}
+    `;
+    updateSidebar(html);
+},
 
         onPCPBrush: (activeStints) => {
             if (activeStints.length === 0) {
@@ -307,36 +295,46 @@ const globalOverviewHTML = `
             updateSidebar(specificHTML);
         },
 
-        onRankingBrush: (selectedDrivers, minLap, maxLap) => {
-            if (!selectedDrivers || selectedDrivers.length === 0) {
-                drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
-                drawLineChart(rawLapsData, "#line-chart", callbacks, []);
-                drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, []);
-                drawPCAChart(pcaData, "#pca-chart", callbacks, []);
-                
-                updateSidebar(""); // Ripristina stringa vuota
-                return;
-            }
+       onRankingBrush: (selectedDrivers, minLap, maxLap) => {
+    if (!selectedDrivers || selectedDrivers.length === 0) {
+        // RESET DI TUTTI I GRAFICI (incluso Rankings)
+        drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
+        drawLineChart(rawLapsData, "#line-chart", callbacks, []);
+        drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, []);
+        drawPCAChart(pcaData, "#pca-chart", callbacks, []);
+        // AGGIUNTO: Reset del Ranking Chart per togliere evidenziazioni e nomi
+        drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
+        
+        updateSidebar(""); 
+        return;
+    }
 
-            const selectedStints = stintsData.filter(stint => {
-                const isRightDriver = selectedDrivers.includes(stint.Driver);
-                const overlapsLaps = (stint.LapStart <= maxLap) && (stint.LapEnd >= minLap);
-                return isRightDriver && overlapsLaps;
-            });
+    // Filtriamo gli stint basandoci sui piloti brushati e il range temporale
+    const selectedStints = stintsData.filter(stint => {
+        const isRightDriver = selectedDrivers.includes(stint.Driver);
+        const overlapsLaps = (stint.LapStart <= maxLap) && (stint.LapEnd >= minLap);
+        return isRightDriver && overlapsLaps;
+    });
 
-            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
-            drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
-            drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
-            drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
+    // RE-RENDER DI TUTTI I GRAFICI
+    // Passando selectedStints a drawRankingsChart, scatterà la logica "isSelected" 
+    // che disegnerà i nomi e aumenterà lo spessore delle linee brushatate.
+    drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
+    drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
+    drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
+    drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
+    
+    // AGGIUNTO: Aggiorna se stesso per mostrare cartellini e highlight
+    drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
-            let specificHTML = `
-                <h3 style="color: #00ffcc; font-size: 0.95rem;">Analisi dal Ranking</h3>
-                <p style="font-size: 0.85rem;">Range di giri: <strong>${minLap} - ${maxLap}</strong></p>
-                <p style="font-size: 0.85rem;">Piloti coinvolti: <strong>${selectedDrivers.length}</strong></p>
-                <p style="font-size: 0.85rem;">Stint evidenziati: <strong>${selectedStints.length}</strong></p>
-            `;
-            updateSidebar(specificHTML);
-        },
+    let specificHTML = `
+        <h3 style="color: #00ffcc; font-size: 0.95rem;">Analisi dal Ranking</h3>
+        <p style="font-size: 0.85rem;">Range di giri: <strong>${minLap} - ${maxLap}</strong></p>
+        <p style="font-size: 0.85rem;">Piloti coinvolti: <strong>${selectedDrivers.length}</strong></p>
+        <p style="font-size: 0.85rem;">Stint evidenziati: <strong>${selectedStints.length}</strong></p>
+    `;
+    updateSidebar(specificHTML);
+},
 
         onReset: () => {
             drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);

@@ -153,20 +153,49 @@ g.append("g")
             .attr("opacity", d => isLapInSelectedStints(d.Driver, d.LapNumber) ? 1 : 0)
             .attr("stroke", "#ffffff")
             .attr("stroke-width", 0.5)
-            .on("mouseover", function(event, d) {
-                d3.select(this).attr("opacity", 1).attr("stroke-width", 2);
-                const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
-                tooltip.classed("hidden", false)
-                    .html(`<strong>${d.Driver}</strong> - Lap ${d.LapNumber}<br/>
-                           Mescola: <strong style="color:${compColor}">${d.Compound}</strong><br/>
-                           Time: <strong>${d.LapTime.toFixed(3)}s</strong>`)
-                    .style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
-            })
-            .on("mouseout", function(event, d) {
-                const selected = isLapInSelectedStints(d.Driver, d.LapNumber);
-                d3.select(this).attr("opacity", selected ? 1 : 0).attr("stroke-width", 0.5);
-                tooltip.classed("hidden", true);
-            });
+           .on("mouseover", function(event, d) {
+    d3.select(this)
+        .attr("opacity", 1)
+        .attr("stroke-width", 2)
+        .attr("r", d => rScale(d.TyreLife) + 2); // Dynamic visual feedback
+
+    const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
+    
+    tooltip.classed("hidden", false)
+        .html(`
+            <div style="border-left: 4px solid ${driverColors.get(d.Driver)}; padding-left: 8px;">
+                <div style="font-weight: bold; font-size: 1rem;">${d.Driver}</div>
+                <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px;">
+                    <div>Lap: <strong>L${d.LapNumber}</strong></div>
+                    <div>Time: <strong>${d.LapTime.toFixed(3)}s</strong></div>
+                </div>
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <div>Compound: <strong style="color:${compColor}">${d.Compound}</strong></div>
+                    <div>Tyre Age: <strong>${d.TyreLife} laps</strong></div>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
+                
+                <div style="font-size: 0.75rem; color: #00ffcc;">
+                    Speed ST: <strong>${d.SpeedST || 'N/A'} km/h</strong>
+                </div>
+                ${d.IsSafetyCar ? '<div style="color: #ffd400; font-weight: bold; font-size: 0.7rem;">⚠️ SAFETY CAR PERIOD</div>' : ''}
+            </div>
+        `)
+        .style("left", (event.pageX + 15) + "px")
+        .style("top", (event.pageY - 28) + "px");
+})
+           .on("mouseout", function(event, d) {
+    const selected = isLapInSelectedStints(d.Driver, d.LapNumber);
+    d3.select(this)
+        .attr("opacity", selected ? 1 : 0)
+        .attr("r", rScale(d.TyreLife)) // Ripristina raggio originale
+        .attr("stroke-width", 0.5);
+    tooltip.classed("hidden", true);
+});
     });
 
     // --- ANALISI STINT SELEZIONATI (Regressione e Crossover) ---

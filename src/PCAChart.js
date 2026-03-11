@@ -94,18 +94,40 @@ g.append("g")
         .style("opacity", d => (selectedStints.length === 0) ? 0.6 : (selectedStints.some(s => s.StintID === d.StintID) ? 1 : 0.2))
         .style("cursor", "pointer")
         .on("click", (event, d) => callbacks?.onStintClick?.([d]))
-        .on("mouseover", function(event, d) {
-            d3.select(this).attr("r", 7).attr("stroke", "#ffffff").attr("stroke-width", 2).raise();
-            
-            tooltip.classed("hidden", false)
-                .html(`
-                    <strong>${d.Driver}</strong> - ${d.Compound}<br/>
-                    Giri: ${d.TotalLaps}<br/>
-                    PC1: ${d.PC1.toFixed(2)} | PC2: ${d.PC2.toFixed(2)}
-                `)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 20) + "px");
-        })
+      // ... (codice precedente dei punti)
+.on("mouseover", function(event, d) {
+    d3.select(this)
+        .attr("r", 8) // Aumenta leggermente il raggio per feedback visivo
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", 2)
+        .raise();
+    
+    // TOOLTIP OTTIMIZZATO
+    tooltip.classed("hidden", false)
+        .html(`
+            <div style="border-left: 4px solid #888; padding-left: 8px;">
+                <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">
+                    ${d.Driver} 
+                </div>
+                 <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
+                <div style="margin-bottom: 2px;">
+                    Stint: <strong>#${d.StintNumber || d.StintID}</strong> | 
+                    Mescola: <span style="color:${d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}; font-weight: bold;">${d.Compound}</span>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #444; margin: 4px 0;">
+                <div style="font-size: 0.85rem;">
+                    <div>Laps Completed: <strong>${d.TotalLaps}</strong></div>
+                    <div>Avg Degradation: <strong>${d.DegradationSlope ? d.DegradationSlope.toFixed(3) : 'N/A'} s/l</strong></div>
+                    <div style="margin-top: 4px; color: #00ffcc; font-family: monospace;">
+                        PC1: ${d.PC1.toFixed(2)} | PC2: ${d.PC2.toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        `)
+        .style("left", (event.pageX + 15) + "px")
+        .style("top", (event.pageY - 28) + "px");
+})
+// ... (codice successivo on("mouseout"))
         .on("mouseout", function(event, d) {
             tooltip.classed("hidden", true);
             const isSelected = selectedStints.some(s => s.StintID === d.StintID);
