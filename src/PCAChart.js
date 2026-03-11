@@ -1,11 +1,5 @@
 import * as d3 from 'd3';
 
-const COMPOUND_COLORS = {
-    "SOFT": "#e10600",
-    "MEDIUM": "#ffeb3b",
-    "HARD": "#ffffff"
-};
-
 export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = []) {
     const container = d3.select(containerId);
     container.selectAll("*").remove(); 
@@ -13,15 +7,15 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
 
     if (!pcaData || !pcaData.stints) return;
 
-    // 1. LETTURA DATI DAL JSON
+    // 1. LETTURA DATI
     const data = pcaData.stints.map(d => ({
         ...d,
         PC1: +d.PC1,
-        PC2: +d.PC2,
-        StintLength: +d.TotalLaps
+        PC2: +d.PC2
     }));
 
-    const explainedVariance = pcaData.variance || [0, 0];
+    // Recupero varianza (es. [65.4, 20.1])
+    const variance = pcaData.variance || [0, 0];
 
     const width = container.node().clientWidth;
     const height = container.node().clientHeight;
@@ -34,20 +28,16 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
     const svg = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .style("display", "block") // (Aggiungi questa se manca, aiuta con i resize)
-        // --- NUOVO: Listener per il Reset Globale ---
-        .on("dblclick", function(event) {
-            event.preventDefault(); // Evita selezioni di testo accidentali
-            if (callbacks && callbacks.onReset) {
-                callbacks.onReset();
-            }
+        .style("display", "block")
+        .on("dblclick", (event) => {
+            event.preventDefault();
+            if (callbacks && callbacks.onReset) callbacks.onReset();
         });
-        // --------------------------------------------
 
     const g = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // 2. SCALE
+    // 2. SCALE (Range fisso per i punti, senza rScale)
     const xExt = d3.extent(data, d => d.PC1);
     const yExt = d3.extent(data, d => d.PC2);
     const padX = (xExt[1] - xExt[0]) * 0.15 || 1;
@@ -56,120 +46,86 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
     const xScale = d3.scaleLinear().domain([xExt[0] - padX, xExt[1] + padX]).range([0, innerWidth]);
     const yScale = d3.scaleLinear().domain([yExt[0] - padY, yExt[1] + padY]).range([innerHeight, 0]); 
 
-    const rScale = d3.scaleLinear()
-        .domain(d3.extent(data, d => d.StintLength)) // Prende il [minGiri, maxGiri]
-        .range([3, 12]); // Traduce in un raggio visivo: stint corto = 3px, lungo = 12px
-    // 3. ASSI
+    // 3. ASSI CON VARIANZA SPIEGATA
     g.append("g")
         .attr("transform", `translate(0,${innerHeight})`)
         .call(d3.axisBottom(xScale).ticks(6))
         .attr("color", "#888894")
-        .append("text").attr("x", innerWidth).attr("y", 35)
-        .attr("fill", "#f5f5f5").attr("text-anchor", "end")
-        .text(`PC1:Strategy & Endurance`);
+        .append("text")
+        .attr("x", innerWidth)
+        .attr("y", 35)
+        .attr("fill", "#f5f5f5")
+        .attr("text-anchor", "end")
+        .style("font-weight", "bold")
+        .text(`PC1 (${variance[0].toFixed(1)}%)`); // Aggiunta varianza
 
     g.append("g")
         .call(d3.axisLeft(yScale).ticks(6))
         .attr("color", "#888894")
-        .append("text").attr("x", +100).attr("y", -15)
-        .attr("fill", "#f5f5f5").attr("text-anchor", "end")
-        .text(`PC2: Wear & Performance Loss`);
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -35)
+        .attr("fill", "#f5f5f5")
+        .attr("text-anchor", "end")
+        .style("font-weight", "bold")
+        .text(`PC2 (${variance[1].toFixed(1)}%)`); // Aggiunta varianza
 
-    // 4. BRUSH RETTANGOLARE (Sempre in secondo piano per non bloccare il mouse)
+    // 4. BRUSH
     const brush = d3.brush()
         .extent([[0, 0], [innerWidth, innerHeight]])
         .on("end", brushed);
     
     g.append("g").attr("class", "brush").call(brush);
 
-    // 5. PUNTI (SCATTER PLOT SEMPLICE CON CERCHI)
+    // 5. PUNTI (Minimalisti: colore neutro e raggio fisso)
     const tooltip = d3.select("#tooltip");
 
-    const points = g.append("g").attr("class", "points").selectAll("circle.point")
+    const points = g.append("g").attr("class", "points").selectAll("circle")
         .data(data)
         .enter()
         .append("circle")
-        .attr("class", "point")
         .attr("cx", d => xScale(d.PC1))
         .attr("cy", d => yScale(d.PC2))
-        .attr("r", d => rScale(d.StintLength))
-        .attr("fill", d => COMPOUND_COLORS[d.Compound] || "#888")
-        .attr("stroke", d => {
-            if (selectedStints.some(s => s.StintID === d.StintID)) return "#00ff00"; // Bordo verde se selezionato
-            return d.Compound === "HARD" ? "#15151e" : "#ffffff";
-        })
-        .attr("stroke-width", d => selectedStints.some(s => s.StintID === d.StintID) ? 3 : 1)
-        .style("opacity", d => (selectedStints.length === 0) ? 0.7 : (selectedStints.some(s => s.StintID === d.StintID) ? 1 : 0.15))
+        .attr("r", 5) // Raggio fisso
+        .attr("fill", "#cccccc") // Colore neutro unico
+        .attr("stroke", d => selectedStints.some(s => s.StintID === d.StintID) ? "#00ff00" : "#15151e")
+        .attr("stroke-width", d => selectedStints.some(s => s.StintID === d.StintID) ? 2 : 0.5)
+        .style("opacity", d => (selectedStints.length === 0) ? 0.6 : (selectedStints.some(s => s.StintID === d.StintID) ? 1 : 0.2))
         .style("cursor", "pointer")
-        .on("click", function(event, d) {
-            if (callbacks && callbacks.onStintClick) callbacks.onStintClick([d]);
-        })
+        .on("click", (event, d) => callbacks?.onStintClick?.([d]))
         .on("mouseover", function(event, d) {
-            d3.select(this).attr("stroke-width", 3).attr("stroke", "#ffffff").raise();
+            d3.select(this).attr("r", 7).attr("stroke", "#ffffff").attr("stroke-width", 2).raise();
             
             tooltip.classed("hidden", false)
                 .html(`
-                    <div style="border-bottom: 1px solid #444; padding-bottom: 4px; margin-bottom: 4px;">
-                        <strong>${d.Driver}</strong> - <span style="color:${COMPOUND_COLORS[d.Compound]}">${d.Compound}</span>
-                    </div>
-                    <div>Stint Length: <strong>${d.StintLength} laps</strong></div>
-                    <div>Avg LapTime: ${(d.AvgLapTime || 0).toFixed(3)}s</div>
-                    <div>Degradation: ${(d.DegradationSlope || 0).toFixed(3)} s/l</div>
+                    <strong>${d.Driver}</strong> - ${d.Compound}<br/>
+                    Giri: ${d.TotalLaps}<br/>
+                    PC1: ${d.PC1.toFixed(2)} | PC2: ${d.PC2.toFixed(2)}
                 `)
-                .style("left", (event.pageX + 15) + "px")
-                .style("top", (event.pageY - 28) + "px");
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 20) + "px");
         })
         .on("mouseout", function(event, d) {
             tooltip.classed("hidden", true);
             const isSelected = selectedStints.some(s => s.StintID === d.StintID);
             d3.select(this)
-                .attr("stroke-width", isSelected ? 3 : 1)
-                .attr("stroke", isSelected ? "#00ff00" : (d.Compound === "HARD" ? "#15151e" : "#ffffff"));
+                .attr("r", 5)
+                .attr("stroke", isSelected ? "#00ff00" : "#15151e")
+                .attr("stroke-width", isSelected ? 2 : 0.5);
         });
 
-
-    // 6. FUNZIONE BRUSHING (Filtro multiplo)
-    // 6. FUNZIONE BRUSHING (Filtro multiplo combinato)
     function brushed(event) {
         const selection = event.selection;
         if (!selection) {
-            // Se l'utente clicca a vuoto, resetta la vista PCA
             if (callbacks && callbacks.onStintClick) callbacks.onStintClick([]);
             return;
         }
-
         const [[x0, y0], [x1, y1]] = selection;
-
-        // 1. Trova i punti fisicamente dentro il rettangolo del brush
         const geometricallySelected = data.filter(d => {
             const cx = xScale(d.PC1);
             const cy = yScale(d.PC2);
             return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
         });
-
-        let finalSelection = [];
-
-        // 2. LOGICA DI COMBINAZIONE
-        if (selectedStints && selectedStints.length > 0) {
-            // Se c'erano già stint selezionati (es. dal Gantt), facciamo l'INTERSEZIONE (AND)
-            // Manteniamo solo i punti che sono nel brush E che erano già evidenziati
-            finalSelection = geometricallySelected.filter(pcaPoint => 
-                selectedStints.some(s => s.Driver === pcaPoint.Driver && s.StintNumber === pcaPoint.StintNumber)
-            );
-
-            // Opzionale: Se l'utente fa un brush su un'area dove non c'erano stint evidenziati, 
-            // assumiamo che voglia fare una NUOVA selezione da zero (sovrascrittura intelligente)
-            if (finalSelection.length === 0) {
-                finalSelection = geometricallySelected;
-            }
-        } else {
-            // Se non c'era nessuna selezione precedente, usiamo semplicemente i punti del brush
-            finalSelection = geometricallySelected;
-        }
-
-        // 3. Propaga la selezione combinata al resto della dashboard
-        if (callbacks && callbacks.onStintClick) {
-            callbacks.onStintClick(finalSelection);
-        }
+        if (callbacks && callbacks.onStintClick) callbacks.onStintClick(geometricallySelected);
     }
 }

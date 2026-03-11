@@ -100,69 +100,53 @@ html, body {
 
 
 /* --- SIDEBAR LEGENDS --- */
+/* Aggiungi o sostituisci queste classi in index.scss */
 
 .sidebar-legends {
     margin-top: auto;
-    padding-top: 8px;
-    border-top: 1px solid #333;
+    padding-top: 10px;
+    border-top: 1px solid #333344;
+
+    .legends-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 15px; // Spazio tra le sezioni verticali
+    }
 }
 
-/* layout generale verticale */
-.legends-wrapper{
-    display:flex;
-    flex-direction:column;
-    gap:8px;
+.legend-section {
+    h3 {
+        font-size: 0.7rem;
+        color: #888894;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+        letter-spacing: 0.5px;
+    }
 }
 
-/* items orizzontali per Stint Length e Race Events */
-
-#size-legend,
-#event-legend{
-    display:flex;
-    flex-direction:row;
-    gap:14px;
-    align-items:center;
-    flex-wrap:wrap;
+/* La barra a gradiente per la Position */
+.position-bar {
+    height: 10px;
+    border-radius: 5px;
+    width: 100%;
+    background: linear-gradient(
+        to right,
+        #006400, #228b22, #32cd32, #7cfc00, #adff2f,
+        #d4ff00, #eeff00, #ffff00, #fff700, #ffea00,
+        #ffcc00, #ffaa00, #ff8800, #ff6600, #ff4400,
+        #ff0000, #dd0000, #bb0000, #990000, #7f0000
+    );
 }
 
-/* riga Teams + Tyres */
-.legend-row{
-    display:flex;
-    gap:24px;
+/* Rimuovi .legend-row se non più utilizzato per evitare conflitti di layout */
+.legend-row {
+    display: none; 
 }
 
-/* sezioni */
-.legend-section{
-    margin-bottom: 4px;
-}
-
-.legend-row .legend-section{
-  
-}
-
-/* titoli */
-.legend-section h3{
-    font-size:0.75rem;
-    color:#888894;
-    text-transform:uppercase;
-    margin-bottom:8px;
-    white-space:nowrap;
-}
-
-/* items */
-.legend-item{
-    display:flex;
-    align-items:center;
-    margin-bottom:5px;
-    font-size:0.8rem;
-}
-
-.legend-item .color-box{
-    width:10px;
-    height:10px;
-    border-radius:2px;
-    margin-right:6px;
-    flex-shrink:0;
+#event-legend, #size-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 /* --- TOOLTIP FLUTTUANTE --- */
 #tooltip {

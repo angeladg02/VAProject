@@ -34,97 +34,63 @@ const TEAM_COLORS = {
     "Haas F1": "#ffffff"
 };
 
+// Cerca la funzione createLegends() e modificala come segue:
 function createLegends() {
-    // Legenda Mescole (Sostituisce la vecchia lista Tyre)
+    // 1. Legenda Mescole
     const compoundContainer = document.getElementById('compound-legend');
     compoundContainer.innerHTML = ''; 
 
-     // Legenda Team
-    const teamContainer = document.getElementById('team-legend');
-    teamContainer.innerHTML = ''; // Pulisce prima di ricreare
-    Object.entries(TEAM_COLORS).forEach(([name, color]) => {
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        item.innerHTML = `<span class="color-box" style="background-color: ${color}"></span>${name}`;
-        teamContainer.appendChild(item);
-    });
+    // Rimosso il blocco relativo a teamContainer (Team Legend)
 
-    // ============================
-// SIZE LEGEND (Stint Length)
-// ============================
-
-const sizeContainer = document.getElementById('size-legend');
-sizeContainer.innerHTML = '';
-
-sizeContainer.innerHTML = `
-<div class="size-legend" style="display:flex; flex-direction:row; align-items:center; gap:14px;">
-    <div class="size-item" style="display:flex; align-items:center; gap:4px;">
-        <svg width="20" height="20"><circle cx="10" cy="10" r="4" fill="#888"/></svg>
-        <span>Short</span>
-    </div>
-    <div class="size-item" style="display:flex; align-items:center; gap:4px;">
-        <svg width="20" height="20"><circle cx="10" cy="10" r="7" fill="#888"/></svg>
-        <span>Medium</span>
-    </div>
-    <div class="size-item" style="display:flex; align-items:center; gap:4px;">
-        <svg width="20" height="20"><circle cx="10" cy="10" r="10" fill="#888"/></svg>
-        <span>Long</span>
-    </div>
-</div>
-`;
-
-// ============================
-// EVENT LEGEND
-// ============================
-
-const eventContainer = document.getElementById('event-legend');
-eventContainer.innerHTML = '';
-
-eventContainer.innerHTML = `
-
-
-<div class="legend-item">
-    <svg width="18" height="18">
-<polygon points="0,0 14,0 7,12" fill="#ff3b3b"/>    </svg>
-    <span>Pit Stop</span>
-</div>
-
-<div class="legend-item">
-    <svg width="18" height="18">
-        <path d="M2 16 L2 2 L12 4 L12 10 L2 8 Z" fill="#ffd400"/>
-    </svg>
-    <span>Safety Car</span>
-</div>
-`;
-
-    // Spiegazione testuale rapida
-    //const explanation = document.createElement('p');
-    //explanation.style.cssText = "font-size: 0.75rem; color: #888; margin-bottom: 12px; line-height: 1.2;";
-    //explanation.innerText = "L'opacità decrescente indica l'usura (fresca → consumata).";
-    //compoundContainer.appendChild(explanation);
-
-    // Creazione delle barre per ogni mescola definita in COMPOUND_COLORS
-    Object.entries(COMPOUND_COLORS).forEach(([name, color], index) => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'compound-wear-row';
-    wrapper.style.cssText = "margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;";
-
-    wrapper.innerHTML = `
-        <div style="display: flex; justify-content: space-between;gap: 12px; font-size: 0.75rem; font-weight: bold;">
-            <span>${name}</span>
-            ${index === 0 ? '<span style="font-weight: normal; opacity: 0.6;">Fresh → Worn</span>' : ''}
+    /*// 2. SIZE LEGEND (Stint Length)
+    const sizeContainer = document.getElementById('size-legend');
+    sizeContainer.innerHTML = `
+        <div class="size-legend" style="display:flex; flex-direction:row; align-items:center; gap:14px;">
+            <div class="size-item" style="display:flex; align-items:center; gap:4px;">
+                <svg width="16" height="16"><circle cx="8" cy="8" r="3" fill="#888"/></svg>
+                <span>Short</span>
+            </div>
+            <div class="size-item" style="display:flex; align-items:center; gap:4px;">
+                <svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="#888"/></svg>
+                <span>Medium</span>
+            </div>
+            <div class="size-item" style="display:flex; align-items:center; gap:4px;">
+                <svg width="16" height="16"><circle cx="8" cy="8" r="8" fill="#888"/></svg>
+                <span>Long</span>
+            </div>
         </div>
-        <div class="wear-bar" style="
-            height: 8px; 
-            border-radius: 4px; 
-            background: linear-gradient(to right, ${color}, rgba(${hexToRgb(color)}, 0.2));
-        "></div>
-    `;
-    compoundContainer.appendChild(wrapper);
-});
+    `;*/
 
-   
+    // 3. EVENT LEGEND
+    const eventContainer = document.getElementById('event-legend');
+    eventContainer.innerHTML = `
+        <div class="legend-item" style="margin-right: 15px;">
+            <svg width="14" height="14"><polygon points="0,0 12,0 6,10" fill="#ff3b3b"/></svg>
+            <span style="margin-left:5px;">Pit Stop </span>
+        </div>
+        <div class="legend-item">
+            <svg width="14" height="14"><path d="M2 14 L2 2 L10 4 L10 10 L2 8 Z" fill="#ffd400"/></svg>
+            <span style="margin-left:5px;">Safety Car</span>
+        </div>
+    `;
+
+    // 4. Generazione Barrette Tyres
+    Object.entries(COMPOUND_COLORS).forEach(([name, color], index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'compound-wear-row';
+        wrapper.style.cssText = "margin-bottom: 8px; display: flex; flex-direction: column; gap: 2px;";
+        wrapper.innerHTML = `
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: bold;">
+                <span>${name}</span>
+                ${index === 0 ? '<span style="font-weight: normal; opacity: 0.5;">New → Worn</span>' : ''}
+            </div>
+            <div class="wear-bar" style="height: 6px; border-radius: 3px; background: linear-gradient(to right, ${color}, rgba(${hexToRgb(color)}, 0.15));"></div>
+        `;
+        compoundContainer.appendChild(wrapper);
+    });
 }
+   
+
 function initDashboard() {
     
     const stintsData = rawStintsData.map(d => ({ 

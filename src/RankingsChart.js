@@ -81,14 +81,34 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     // Disegniamo i path per ogni pilota
     const linesGroup = svg.append("g").attr("class", "lines-group");
 
-   dataByDriver.forEach((laps, driver) => {
-    const teamColor = TEAM_COLORS[laps[0].Team] || "#888894";
+// 1. Definiamo una palette discreta di 20 colori ad alto contrasto
+// Dal verde intenso (vincitore) al rosso intenso (ultimo)
+const lampprechtPalette = [
+    "#006400", "#228b22", "#32cd32", "#7cfc00", "#adff2f", // Verdi (Top 5)
+    "#d4ff00", "#eeff00", "#ffff00", "#fff700", "#ffea00", // Gialli (P6-P10)
+    "#ffcc00", "#ffaa00", "#ff8800", "#ff6600", "#ff4400", // Arancioni (P11-P15)
+    "#ff0000", "#dd0000", "#bb0000", "#990000", "#7f0000"  // Rossi (Ultimi 5)
+];
+
+const getRankColor = (position) => {
+    // La posizione 1 prende l'indice 0, la posizione 20 l'indice 19
+    const index = Math.max(0, Math.min(position - 1, lampprechtPalette.length - 1));
+    return lampprechtPalette[index];
+};
+ 
+    dataByDriver.forEach((laps, driver) => {
+   // 1. Ripristiniamo isSelected (serve per l'interazione con gli altri grafici)
     const isSelected = selectedStints.some(s => s.Driver === driver);
+
+    // 2. Troviamo la posizione finale (Logica Lampprecht)
+    const lastLap = laps[laps.length - 1];
+    const finalPos = +lastLap.Position;
+    const driverColor = getRankColor(finalPos);
 
     linesGroup.append("path")
         .datum(laps)
         .attr("fill", "none")
-        .attr("stroke", teamColor)
+        .attr("stroke", driverColor) // <--- Colore basato sul risultato finale
         .attr("stroke-width", isSelected ? 4 : 1.5)
         .attr("opacity", selectedStints.length > 0 && !isSelected ? 0.2 : 0.8)
         .attr("d", line)
