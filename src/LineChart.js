@@ -66,7 +66,7 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
     const containerNode = container.node();
     const width = containerNode.clientWidth;
     const height = containerNode.clientHeight;
-    const margin = { top: 20, right: 30, bottom: 30, left: 50 };
+    const margin = { top: 15, right: 0, bottom: 17, left: 33 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -92,13 +92,25 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
     const rScale = d3.scaleLinear().domain([0, d3.max(data, d => d.TyreLife) || 30]).range([2, 6]);
 
     // --- ASSI E GRIGLIA ---
-    g.append("g").attr("class", "grid").attr("stroke-opacity", 0.1)
-        .call(d3.axisLeft(yScale).ticks(8).tickSize(-innerWidth).tickFormat(""));
+   // --- ASSI E GRIGLIA ---
+g.append("g")
+    .attr("class", "grid")
+    .attr("stroke-opacity", 0.1)
+    .attr("color", "#888") // Aggiunto per uniformità
+    .call(d3.axisLeft(yScale).ticks(8).tickSize(-innerWidth).tickFormat(""));
 
-    g.append("g").attr("transform", `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(xScale).tickFormat(d => `L${d}`));
+g.append("g")
+    .attr("transform", `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(xScale).tickFormat(d => `L${d}`))
+    .attr("color", "#888") // Cambiato da default a #888
+    .selectAll("text")
+    .style("fill", "#888"); // Forza il colore del testo
 
-    g.append("g").call(d3.axisLeft(yScale).ticks(8).tickFormat(d => d.toFixed(1) + "s"));
+g.append("g")
+    .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => d.toFixed(1) + "s"))
+    .attr("color", "#888") // Cambiato da default a #888
+    .selectAll("text")
+    .style("fill", "#888");
 
     const plotArea = g.append("g").attr("clip-path", "url(#clip)");
 

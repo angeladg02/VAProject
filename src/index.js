@@ -78,13 +78,13 @@ function createLegends() {
     Object.entries(COMPOUND_COLORS).forEach(([name, color], index) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'compound-wear-row';
-        wrapper.style.cssText = "margin-bottom: 8px; display: flex; flex-direction: column; gap: 2px;";
+        wrapper.style.cssText = "margin-bottom: 4px; display: flex; flex-direction: column; gap: 1px;";
         wrapper.innerHTML = `
             <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: bold;">
                 <span>${name}</span>
-                ${index === 0 ? '<span style="font-weight: normal; opacity: 0.5;">New → Worn</span>' : ''}
+                ${index === 0 ? '<span style="font-weight: normal; color : white;">New → Worn</span>' : ''}
             </div>
-            <div class="wear-bar" style="height: 6px; border-radius: 3px; background: linear-gradient(to right, ${color}, rgba(${hexToRgb(color)}, 0.15));"></div>
+            <div class="wear-bar" style="width:100%; height: 7px; border-radius: 3px; background: linear-gradient(to right, ${color}, rgba(${hexToRgb(color)}, 0.15));"></div>
         `;
         compoundContainer.appendChild(wrapper);
     });
@@ -122,25 +122,60 @@ function initDashboard() {
     const wetCount = compoundCounts.get("WET") || 0;
 
     // Generiamo l'HTML statico che rimarrà sempre in cima al pannello Analytics
-    const globalOverviewHTML = `
-        <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #333344;">
-           <!-- <h3 style="color: #00ffcc; margin-top: 0; font-size: 0.95rem; text-transform: uppercase;">Race Overview</h3> -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem;">
-                <div>Stints: <strong style="color: #fff;">${totalStints}</strong></div>
-                <div>Pit Stops: <strong style="color: #fff;">${totalPitStops}</strong></div>
-                <div>Track: <strong style="color: #fff;">${avgTrackTemp.toFixed(1)}°C</strong></div>
-                <div>Air: <strong style="color: #fff;">${avgAirTemp.toFixed(1)}°C</strong></div>
-            </div>
-            <div style="margin-top: 10px; font-size: 0.85rem;">
-                <strong style="display:block; margin-bottom: 4px;">Tyres Distribution:</strong>
-                <span style="color:#e10600; font-weight:bold;">S: ${softCount}</span> |
-                <span style="color:#ffeb3b; font-weight:bold;">M: ${medCount}</span> |
-                <span style="color:#ffffff; font-weight:bold;">H: ${hardCount}</span>
-                ${intCount > 0 ? `| <span style="color:#4caf50; font-weight:bold;">I: ${intCount}</span>` : ''}
-                ${wetCount > 0 ? `| <span style="color:#2196f3; font-weight:bold;">W: ${wetCount}</span>` : ''}
+    // Calcoliamo i dati extra necessari per l'overview
+const validDeg = stintsData.filter(d => d.DegradationSlope > 0);
+const avgDegradation = validDeg.length > 0 ? d3.mean(validDeg, d => d.DegradationSlope) : 0;
+const validLaps = rawLapsData.filter(d => +d.LapTimeSeconds > 0);
+const fastestLap = validLaps.reduce((min, p) => +p.LapTimeSeconds < +min.LapTimeSeconds ? p : min, validLaps[0]);
+// 1. Calcoliamo il numero totale di giri della gara
+const maxLaps = d3.max(rawLapsData, d => +d.LapNumber) || 0;
+
+const globalOverviewHTML = `
+    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #333344;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h1 style="color: #f30303; margin: 0; font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1px;">
+                Monza 2024
+            </h1>
+            <span style="background: #333344; color: #fff; padding: 6px 6px; border-radius: 6px; font-size: 1.0rem; white-space: nowrap;">
+                ${maxLaps} LAPS
+            </span>
+            
+        </div>
+         <div style="background: rgba(162, 0, 255, 0.1); padding: 8px; border-radius: 4px; border: 1px solid rgba(162, 0, 255, 0.3); margin-bottom: 15px;">
+            <div style="font-size: 0.65rem; color: #a200ff; text-transform: uppercase; font-weight: bold;">Fastest Lap</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
+                <span style="font-size: 0.85rem; font-weight: bold; color: #fff;">${fastestLap ? fastestLap.Driver : 'N/A'}</span>
+                <span style="font-size: 0.85rem; font-family: monospace; color: #f5f5f5;">${fastestLap ? (+fastestLap.LapTimeSeconds).toFixed(3) + 's' : '-'}</span>
             </div>
         </div>
-    `;
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px; border-left: 2px solid #e10600;">
+                <div style="font-size: 0.65rem; color: #888894; text-transform: uppercase;">Avg Degradation</div>
+                <div style="font-size: 0.9rem; font-weight: bold; color: #fff;">${avgDegradation.toFixed(3)} <span style="font-size: 0.6rem; font-weight: normal;">s/l</span></div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px; border-left: 2px solid #ffd400;">
+                <div style="font-size: 0.65rem; color: #888894; text-transform: uppercase;">Pit Stops</div>
+                <div style="font-size: 0.9rem; font-weight: bold; color: #fff;">${totalPitStops}</div>
+            </div>
+        </div>
+
+       
+
+        <div style="font-size: 0.95rem; color: #888894; display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span>Track: <strong style="color: #eee;">${avgTrackTemp.toFixed(1)}°C</strong></span>
+            <span>Air: <strong style="color: #eee;">${avgAirTemp.toFixed(1)}°C</strong></span>
+        </div>
+
+        <div style="margin-top: 10px; font-size: 0.95rem;">
+            <strong style="display:block; margin-bottom: 6px; font-size: 0.7rem; color: #888894; text-transform: uppercase;">Compound Usage:</strong>
+            <div style="display: flex; gap: 10px; font-family: monospace;">
+                <span style="color:#e10600;">S: ${softCount}</span>
+                <span style="color:#ffeb3b;">M: ${medCount}</span>
+                <span style="color:#ffffff;">H: ${hardCount}</span>
+            </div>
+        </div>
+    </div>
+`;
 
     // =========================================================
     // 2. FUNZIONE HELPER PER AGGIORNARE LA SIDEBAR
@@ -157,7 +192,7 @@ function initDashboard() {
             const fastestLap = validLaps.reduce((min, p) => +p.LapTimeSeconds < +min.LapTimeSeconds ? p : min, validLaps[0]);
 
             specificHTML = `
-                <h3 style="color: #888894; font-size: 0.85rem; text-transform: uppercase;">Performance Globale</h3>
+                <h3 style="color: #888894; font-size: 0.85rem; text-transform: uppercase;">GLOBAL PERFORMANCE</h3>
                 <p style="font-size: 0.85rem;">Degrado Medio: <strong>${avgDegradation.toFixed(3)} s/giro</strong></p>
                 ${fastestLap ? `<p style="font-size: 0.85rem;">Giro Veloce: <strong>${fastestLap.Driver}</strong> (${(+fastestLap.LapTimeSeconds).toFixed(3)}s al L${fastestLap.LapNumber})</p>` : ''}
                <!-- <p style="font-size: 0.8rem; color: #888894; margin-top: 15px;"><i>Usa il brush o clicca sui grafici per esplorare le strategie. Doppio click per ripristinare.</i></p> -->

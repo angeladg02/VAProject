@@ -33,7 +33,7 @@ export function drawStrategyGantt(rawData, containerId, callbacks, selectedStint
     const width = containerNode.clientWidth || 800;
     const height = containerNode.clientHeight || 400;
     
-    const margin = { top: 5, right: 30, bottom: 30, left: 65 }; 
+    const margin = { top: 5, right: 15, bottom: 15, left: 35 }; 
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -99,22 +99,24 @@ export function drawStrategyGantt(rawData, containerId, callbacks, selectedStint
         .select(".domain").remove();
 
     // 5. ASSI
-    g.append("g")
-        .attr("transform", `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(xScale)
-            .ticks(Math.round(maxLap / 5))
-            .tickFormat(d => `L${d}`)
-        )
-        .attr("color", "#888894")
-        .selectAll("text").style("fill", "#f5f5f5");
+   // 5. ASSI
+g.append("g")
+    .attr("transform", `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(xScale)
+        .ticks(Math.round(maxLap / 5))
+        .tickFormat(d => `L${d}`)
+    )
+    .attr("color", "#888")
+    .selectAll("text")
+    .style("fill", "#888"); // Cambiato da #f5f5f5
 
-    g.append("g")
-        .call(d3.axisLeft(yScale))
-        .attr("color", "#888894")
-        .selectAll("text")
-        .style("fill", "#f5f5f5")
-        .style("font-weight", "bold")
-        .style("font-size", "12px");
+g.append("g")
+    .call(d3.axisLeft(yScale))
+    .attr("color", "#888")
+    .selectAll("text")
+    .style("fill", "#888") // Cambiato da #f5f5f5
+    .style("font-weight", "bold")
+    .style("font-size", "12px");
 
     g.select(".domain").remove();
 

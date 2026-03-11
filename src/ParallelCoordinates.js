@@ -84,7 +84,7 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
     const node = container.node();
     const width = node.clientWidth || 800;
     const height = node.clientHeight || 300;
-    const margin = { top: 40, right: 60, bottom: 20, left: 60 };
+    const margin = { top: 30, right: 20, bottom: 10, left: 20 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -113,7 +113,7 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         }
     });
 
-    const x = d3.scalePoint().range([0, innerWidth]).padding(0.5).domain(dimensions);
+    const x = d3.scalePoint().range([0, innerWidth]).padding(0.8).domain(dimensions);
 
     // 4. DISEGNO LINEE E TOOLTIP
     const lineGenerator = d => d3.line()(dimensions.map(p => [x(p), y[p](d[p])]));
@@ -141,7 +141,7 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
                     <div>Avg Delta S2: <strong>+${d["S2 Delta"].toFixed(3)}s</strong></div>
                     <div>Avg Delta S3: <strong>+${d["S3 Delta"].toFixed(3)}s</strong></div>
                     <div>Consistency (Std): <strong>${d["Consistency Std"].toFixed(3)}s</strong></div>
-                    <div style="margin-top: 5px; font-size: 0.8em; color: #00ffcc;">Click per isolare lo stint</div>
+                  
                 `)
                 .style("left", (event.pageX + 15) + "px")
                 .style("top", (event.pageY - 28) + "px");
@@ -152,22 +152,28 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
     // 5. ASSI E BRUSH
     const selections = new Map();
 
-    const axes = g.selectAll(".axis")
-        .data(dimensions)
-        .enter().append("g")
-        .attr("class", "axis")
-        .attr("transform", d => `translate(${x(d)},0)`)
-        .each(function(d) { d3.select(this).call(d3.axisLeft(y[d]).ticks(5)); });
+  // 5. ASSI E BRUSH
+const axes = g.selectAll(".axis")
+    .data(dimensions)
+    .enter().append("g")
+    .attr("class", "axis")
+    .attr("transform", d => `translate(${x(d)},0)`)
+    .each(function(d) { d3.select(this).call(d3.axisLeft(y[d]).ticks(5)); });
 
-    axes.selectAll("text").style("fill", "#f5f5f5").style("font-size", "10px");
-    axes.selectAll("path, line").style("stroke", "#888894");
-    axes.append("text")
-        .style("text-anchor", "middle")
-        .attr("y", -15)
-        .text(d => d)
-        .style("fill", "#f5f5f5")
-        .style("font-weight", "bold")
-        .style("font-size", "10px");
+axes.selectAll("text")
+    .style("fill", "#888") // Cambiato da #f5f5f5
+    .style("font-size", "10px");
+
+axes.selectAll("path, line")
+    .style("stroke", "#888"); // Uniformato
+
+axes.append("text")
+    .style("text-anchor", "middle")
+    .attr("y", -15)
+    .text(d => d)
+    .style("fill", "#888") // Cambiato da #f5f5f5
+    .style("font-weight", "bold")
+    .style("font-size", "12px");
 
     axes.append("g")
         .attr("class", "brush")

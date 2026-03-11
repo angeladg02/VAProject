@@ -18,7 +18,7 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     container.selectAll("*").remove();
 
     const node = container.node();
-    const margin = { top: 20, right: 40, bottom: 30, left: 40 };
+    const margin = { top: 10, right: 20, bottom: 15, left: 20 };
     const width = node.clientWidth - margin.left - margin.right;
     const height = node.clientHeight - margin.top - margin.bottom;
 
@@ -42,6 +42,7 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     const xScale = d3.scaleLinear()
         .domain(d3.extent(data, d => +d.LapNumber))
         .range([0, width]);
+        
 
     // L'asse Y è invertito: la posizione 1 è in alto
     const yScale = d3.scaleLinear()
@@ -51,13 +52,13 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     // Assi
     svg.append("g")
         .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(xScale).ticks(10))
-        .attr("color", "#888");
+        // Aggiungiamo .tickFormat(d => `L${d}`) per visualizzare "L1", "L2", ecc.
+        .call(d3.axisBottom(xScale).ticks(10).tickFormat(d => `L${d}`))
+        .attr("color", "#888"); // Colore scuro coerente con la tua richiesta precedente
 
     svg.append("g")
         .call(d3.axisLeft(yScale).ticks(10))
         .attr("color", "#888");
-
     // --- NUOVO: Configurazione del Brush X ---
     const brush = d3.brush() 
         .extent([[0, 0], [width, height]])

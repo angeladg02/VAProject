@@ -21,7 +21,7 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
     const height = container.node().clientHeight;
     if (width === 0 || height === 0) return;
 
-    const margin = { top: 30, right: 30, bottom: 40, left: 50 };
+    const margin = { top: 20, right: 20, bottom: 35, left: 40 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -47,28 +47,29 @@ export function drawPCAChart(pcaData, containerId, callbacks, selectedStints = [
     const yScale = d3.scaleLinear().domain([yExt[0] - padY, yExt[1] + padY]).range([innerHeight, 0]); 
 
     // 3. ASSI CON VARIANZA SPIEGATA
-    g.append("g")
-        .attr("transform", `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(xScale).ticks(6))
-        .attr("color", "#888894")
-        .append("text")
-        .attr("x", innerWidth)
-        .attr("y", 35)
-        .attr("fill", "#f5f5f5")
-        .attr("text-anchor", "end")
-        .style("font-weight", "bold")
-        .text(`PC1 (${variance[0].toFixed(1)}%)`); // Aggiunta varianza
+    // 3. ASSI CON VARIANZA SPIEGATA
+g.append("g")
+    .attr("transform", `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(xScale).ticks(6))
+    .attr("color", "#888") // Uniformato
+    .append("text")
+    .attr("x", innerWidth)
+    .attr("y", 35)
+    .attr("fill", "#888") // Cambiato da #f5f5f5
+    .attr("text-anchor", "end")
+    .style("font-weight", "bold")
+    .text(`PC1 (${variance[0].toFixed(1)}%)`);
 
-    g.append("g")
-        .call(d3.axisLeft(yScale).ticks(6))
-        .attr("color", "#888894")
-        .append("text")
-        .attr("transform", "rotate(-90)")
-        .attr("y", -35)
-        .attr("fill", "#f5f5f5")
-        .attr("text-anchor", "end")
-        .style("font-weight", "bold")
-        .text(`PC2 (${variance[1].toFixed(1)}%)`); // Aggiunta varianza
+g.append("g")
+    .call(d3.axisLeft(yScale).ticks(6))
+    .attr("color", "#888")
+    .append("text")
+    .attr("x", +30)          // leggermente a sinistra dell'asse
+    .attr("y", -10)         // sopra l'asse Y
+    .attr("fill", "#888")
+    .attr("text-anchor", "end")
+    .style("font-weight", "bold")
+    .text(`PC2 (${variance[1].toFixed(1)}%)`);
 
     // 4. BRUSH
     const brush = d3.brush()
