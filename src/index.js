@@ -171,44 +171,62 @@ function initDashboard() {
             const fastestLap = validLaps.reduce((min, p) => +p.LapTimeSeconds < +min.LapTimeSeconds ? p : min, validLaps[0]);
 
             specificHTML = `
-                <h3 style="color: #888894; font-size: 0.85rem; text-transform: uppercase;">GLOBAL PERFORMANCE</h3>
-                <p style="font-size: 0.85rem;">Degrado Medio: <strong>${avgDegradation.toFixed(3)} s/giro</strong></p>
-                ${fastestLap ? `<p style="font-size: 0.85rem;">Giro Veloce: <strong>${fastestLap.Driver}</strong> (${(+fastestLap.LapTimeSeconds).toFixed(3)}s al L${fastestLap.LapNumber})</p>` : ''}
-               <!-- <p style="font-size: 0.8rem; color: #888894; margin-top: 15px;"><i>Usa il brush o clicca sui grafici per esplorare le strategie. Doppio click per ripristinare.</i></p> -->
+                
             `;
         }
         // Incolla tutto insieme
         panel.innerHTML = globalOverviewHTML + '<div class="selection-details">' + specificHTML + '</div>';
     };
-const getComparativeStatsHTML = (selectedLaps, globalAvg) => {
-        if (!selectedLaps || selectedLaps.length === 0) return '';
+    const getComparativeStatsHTML = (selectedLaps, selectedStints, globalAvgPace, globalAvgDeg) => {
+        if (!selectedLaps || selectedLaps.length === 0 || !selectedStints || selectedStints.length === 0) return '';
         
-        const localAvg = d3.mean(selectedLaps, d => +d.LapTimeSeconds);
-        const delta = localAvg - globalAvg;
-        const isFaster = delta < 0;
+        // Calcoli PACE
+        const localAvgPace = d3.mean(selectedLaps, d => +d.LapTimeSeconds);
+        const deltaPace = localAvgPace - globalAvgPace;
+        const isFasterPace = deltaPace < 0;
+
+        // Calcoli DEGRADO
+        const localAvgDeg = d3.mean(selectedStints, d => d.DegradationSlope);
+        const deltaDeg = localAvgDeg - globalAvgDeg;
+        const isBetterDeg = deltaDeg < 0; 
 
         return `
-            <div style="margin-top: 10px; border-top: 1px dashed #333344; padding-top: 10px;">
-                <h3 style="color: #00ffcc; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px;">Comparazione Tempi</h3>
+            <div style="margin-top: 6px; border-top: 1px dashed #333344; padding-top: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <h3 style="color: #00ffcc; font-size: 0.85rem; text-transform: uppercase; margin: 0;">Analytics</h3>
+                    
+                    <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; padding: 2px;">
+                        <button id="btn-toggle-pace" style="cursor:pointer; background: #00ffcc; color: #000; border:none; border-radius: 3px; font-size: 0.65rem; font-weight: bold; padding: 2px 6px; transition: 0.2s;">PACE</button>
+                        <button id="btn-toggle-deg" style="cursor:pointer; background: transparent; color: #888894; border:none; border-radius: 3px; font-size: 0.65rem; font-weight: bold; padding: 2px 6px; transition: 0.2s;">DEG</button>
+                    </div>
+                </div>
                 
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div id="view-pace" style="display: flex; align-items: center; justify-content: space-between;">
                     <div style="width: 40%; font-size: 0.8rem; padding-right: 5px;">
-                        <div style="color: #888894; font-size: 0.7rem; text-transform: uppercase;">Media Selezione</div>
-                        <div style="font-size: 1.1rem; font-weight: bold; color: #fff; margin-bottom: 5px;">${localAvg.toFixed(3)}s</div>
-                        
-                        <div style="color: ${isFaster ? '#4caf50' : '#e10600'}; font-weight: bold; font-size: 0.85rem;">
-                            ${isFaster ? '▼' : '▲'} ${Math.abs(delta).toFixed(3)}s
+                        <div style="font-size: 1.1rem; font-weight: bold; color: #fff; margin-bottom: 5px;">${localAvgPace.toFixed(3)}s</div>
+                        <div style="color: ${isFasterPace ? '#4caf50' : '#e10600'}; font-weight: bold; font-size: 0.85rem;">
+                            ${isFasterPace ? '▼' : '▲'} ${Math.abs(deltaPace).toFixed(3)}s
                         </div>
                         <div style="font-size: 0.65rem; color: #888894;">vs Globale</div>
                     </div>
-                    
-                    <div id="sidebar-boxplot-container" style="width: 60%; height: 140px;"></div>
+                    <div id="sidebar-boxplot-pace" style="width: 60%; height: 110px;"></div>
+                </div>
+
+                <div id="view-deg" style="display: none; align-items: center; justify-content: space-between;">
+                    <div style="width: 40%; font-size: 0.8rem; padding-right: 5px;">
+                        <div style="font-size: 1.0rem; font-weight: bold; color: #fff; margin-bottom: 5px;">${localAvgDeg.toFixed(3)}</div>
+                        <div style="color: ${isBetterDeg ? '#4caf50' : '#e10600'}; font-weight: bold; font-size: 0.85rem;">
+                            ${isBetterDeg ? '▼' : '▲'} ${Math.abs(deltaDeg).toFixed(3)}
+                        </div>
+                        <div style="font-size: 0.65rem; color: #888894;">vs Globale (s/l)</div>
+                    </div>
+                    <div id="sidebar-boxplot-deg" style="width: 60%; height: 110px;"></div>
                 </div>
             </div>
         `;
     };
     // =========================================================
-    // 3. CALLBACKS DEI GRAFICI AGGIORNATI
+    // 3. CALLBACKS DEI GRAFICI AGGIORNATI --> interazioni
     // =========================================================
     const callbacks = {
       onStintClick: (selectedData) => {
@@ -232,9 +250,7 @@ const getComparativeStatsHTML = (selectedLaps, globalAvg) => {
             drawPCAChart(pcaData, "#pca-chart", callbacks, finalSelection);
             drawRankingsChart(rawLapsData, "#position-chart", callbacks, finalSelection);
 
-            // -----------------------------------------------------------------
-            // NUOVA LOGICA: SE ESATTAMENTE 2 STINT SONO SELEZIONATI
-            // -----------------------------------------------------------------
+            //controllo che siano selezionati esattamente 2 stint
             if (finalSelection.length === 2 && finalSelection[0].StintID) {
                 const s1 = finalSelection[0];
                 const s2 = finalSelection[1];
@@ -397,19 +413,50 @@ const getComparativeStatsHTML = (selectedLaps, globalAvg) => {
             drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
             // CREIAMO SOLO L'HTML DELLE STATISTICHE E DEL BOXPLOT (Senza il testo extra)
-            let specificHTML = getComparativeStatsHTML(selectedLaps, globalAvgLapTime);
+            // CREAZIONE HTML (Passando anche gli Stint e l'AvgDegradation globale!)
+            let specificHTML = `
+                
+            `;
 
+            specificHTML += getComparativeStatsHTML(selectedLaps, selectedStints, globalAvgLapTime, avgDegradation);
             updateSidebar(specificHTML);
 
-            if (selectedLaps.length > 0) {
-                // Passiamo 0.15 di opacità per il globale (grigio) e 0.8 per la selezione (verde acqua)
+            if (selectedLaps.length > 0 && selectedStints.length > 0) {
+                // 1. DISEGNA BOXPLOT PACE (Verde Acqua)
                 drawComparativeBoxplot(
-                    validLaps, selectedLaps, 
-                    "Globale", "Selezione", 
-                    "#888894", "#00ffcc", 
-                    0.15, 0.8, 
-                    "#sidebar-boxplot-container"
+                    validLaps, selectedLaps, "Globale", "Selezione", 
+                    "#888894", "#00ffcc", 0.15, 0.8, "#sidebar-boxplot-pace", 
+                    d => +d.LapTimeSeconds, "s"
                 );
+
+                // 2. DISEGNA BOXPLOT DEGRADO (Viola Magenda)
+                drawComparativeBoxplot(
+                    validDeg, selectedStints, "Globale", "Selezione", 
+                    "#888894", "#ff00ff", 0.15, 0.8, "#sidebar-boxplot-deg", 
+                    d => +d.DegradationSlope, "s/l"
+                );
+
+                // 3. LOGICA DEI BOTTONI TOGGLE
+                const btnPace = document.getElementById('btn-toggle-pace');
+                const btnDeg = document.getElementById('btn-toggle-deg');
+                const viewPace = document.getElementById('view-pace');
+                const viewDeg = document.getElementById('view-deg');
+
+                if(btnPace && btnDeg) {
+                    btnPace.addEventListener('click', () => {
+                        viewPace.style.display = 'flex';
+                        viewDeg.style.display = 'none';
+                        btnPace.style.background = '#00ffcc'; btnPace.style.color = '#000';
+                        btnDeg.style.background = 'transparent'; btnDeg.style.color = '#888894';
+                    });
+
+                    btnDeg.addEventListener('click', () => {
+                        viewPace.style.display = 'none';
+                        viewDeg.style.display = 'flex';
+                        btnDeg.style.background = '#ff00ff'; btnDeg.style.color = '#000';
+                        btnPace.style.background = 'transparent'; btnPace.style.color = '#888894';
+                    });
+                }
             }
         },
 
@@ -432,30 +479,36 @@ const getComparativeStatsHTML = (selectedLaps, globalAvg) => {
     callbacks.onReset();
 }
 
+
 // =========================================================
-// FUNZIONE PER IL BOXPLOT COMPARATIVO (ANALYTICS)
-// =========================================================
-// =========================================================
-// FUNZIONE PER IL BOXPLOT COMPARATIVO (VERTICALE)
+// FUNZIONE PER IL BOXPLOT COMPARATIVO (MULTI-METRICA)
 // =========================================================
 // =========================================================
-// FUNZIONE PER IL BOXPLOT COMPARATIVO (MIGLIORATO)
+// FUNZIONE PER IL BOXPLOT COMPARATIVO (SCROLL & ZOOM FIX)
 // =========================================================
-// =========================================================
-// FUNZIONE PER IL BOXPLOT COMPARATIVO (UNIVERSALE)
-// =========================================================
-function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, opacity1, opacity2, containerSelector) {
+function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, opacity1, opacity2, containerSelector, valueAccessor, unit) {
     const container = d3.select(containerSelector);
     container.selectAll("*").remove(); 
+    
+    // Sicurezza: nascondiamo l'overflow per evitare che elementi esterni allarghino la pagina
+    container.style("overflow", "hidden");
 
     if (!data1 || !data2 || data1.length === 0 || data2.length === 0) return;
 
     function getBoxplotStats(data) {
-        let vals = data.map(d => +d.LapTimeSeconds).filter(d => d > 0).sort(d3.ascending);
+        let vals = data.map(valueAccessor).filter(d => d !== null && !isNaN(d)).sort(d3.ascending);
         if(vals.length === 0) return null;
 
-        const fastest = vals[0];
-        vals = vals.filter(v => v <= fastest * 1.10); // Rimuove outlier (es. Pit stop)
+        if (unit === 's') { 
+            if (vals[0] > 10) { 
+                const fastest = vals[0];
+                vals = vals.filter(v => v <= fastest * 1.10); 
+            }
+        } else if (unit === 's/l') {
+            // Filtro di dominio (F1): ignoriamo degradi matematicamente impossibili/folli
+            // (es. maggiori di 0.5s al giro) per pulire i dati grezzi prima della statistica
+            vals = vals.filter(v => v >= -0.2 && v <= 0.5);
+        }
 
         const q1 = d3.quantile(vals, 0.25);
         const median = d3.quantile(vals, 0.50);
@@ -474,44 +527,57 @@ function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, op
 
     if (!stats1 || !stats2) return;
 
+    // --- FIX SCROLLING ORIZZONTALE ---
     const node = container.node();
-    const width = node ? node.getBoundingClientRect().width : 160;
-    const height = 140; 
-    const margin = { top: 5, right: 5, bottom: 20, left: 35 };
+    let width = node ? node.getBoundingClientRect().width : 0;
+    
+    // Se la larghezza è 0 (perché siamo nel tab "DEG" nascosto),
+    // copiamo la larghezza esatta dal contenitore "PACE" che in quel momento è visibile!
+    if (width === 0 || width == null) {
+        const visibleSibling = document.getElementById("sidebar-boxplot-pace");
+        width = visibleSibling ? visibleSibling.getBoundingClientRect().width : 130; 
+    }
 
-    const svg = container.append("svg")
-        .attr("width", width)
-        .attr("height", height);
+    const height = 110; 
+    const margin = { top: 5, right: 5, bottom: 18, left: 35 };
 
-    const yMin = Math.min(d3.min(stats1.vals), d3.min(stats2.vals)) - 0.2;
-    const yMax = Math.max(d3.max(stats1.vals), d3.max(stats2.vals)) + 0.2;
+    const svg = container.append("svg").attr("width", width).attr("height", height);
+
+    // --- FIX SCHIACCIAMENTO (ZOOM INTELLIGENTE) ---
+    // Calcoliamo il dominio Y basandoci SOLO SUI BAFFI (min e max) e non sugli outlier,
+    // in questo modo il boxplot si "zoommerà" perfettamente sulla scatola!
+    let yMin = Math.min(stats1.min, stats2.min);
+    let yMax = Math.max(stats1.max, stats2.max);
+    
+    // Fallback se i due baffi dovessero essere identici
+    if (yMin === yMax) {
+        yMin -= (unit === 's/l' ? 0.02 : 0.5);
+        yMax += (unit === 's/l' ? 0.02 : 0.5);
+    }
+    
+    const padding = (yMax - yMin) * 0.15; // 15% di respiro sopra e sotto i baffi
 
     const yScale = d3.scaleLinear()
-        .domain([yMin, yMax])
+        .domain([yMin - padding, yMax + padding])
         .range([height - margin.bottom, margin.top]);
 
     const xScale = d3.scaleBand()
-        .domain([label1, label2]) // Usa le etichette passate come parametro
+        .domain([label1, label2])
         .range([margin.left, width - margin.right])
-        .paddingInner(0.3)
-        .paddingOuter(0.2);
+        .paddingInner(0.3).paddingOuter(0.2);
 
     // Griglia
-    svg.append("g")
-        .attr("class", "grid")
-        .attr("transform", `translate(${margin.left},0)`)
+    svg.append("g").attr("class", "grid").attr("transform", `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale).ticks(4).tickSize(-(width - margin.left - margin.right)).tickFormat(""))
         .selectAll("line").attr("stroke", "rgba(255,255,255,0.05)").attr("stroke-dasharray", "3,3");
 
-    // Asse Y
-    svg.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(yScale).ticks(4).tickFormat(d => d.toFixed(1) + "s"))
+    // Asse Y 
+    svg.append("g").attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(yScale).ticks(4).tickFormat(d => d.toFixed(unit === 's/l' ? 3 : 1) + (unit === 's' ? 's' : '')))
         .selectAll("text").style("fill", "#888894").style("font-family", "monospace").style("font-size", "9px");
 
-    // Asse X (Nomi dinamici)
-    svg.append("g")
-        .attr("transform", `translate(0,${height - margin.bottom})`)
+    // Asse X
+    svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`)
         .call(d3.axisBottom(xScale))
         .selectAll("text").style("fill", "#fff").style("font-size", "9px").style("font-weight", "bold");
 
@@ -529,15 +595,12 @@ function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, op
         g.append("line").attr("x1", center - whiskerWidth).attr("x2", center + whiskerWidth).attr("y1", yScale(stats.min)).attr("y2", yScale(stats.min)).attr("stroke", color).attr("stroke-width", 1.5);
 
         g.append("rect").attr("x", x).attr("width", w).attr("y", yScale(stats.q3)).attr("height", Math.max(1, yScale(stats.q1) - yScale(stats.q3))).attr("fill", color).attr("fill-opacity", opacity).attr("stroke", color).attr("stroke-width", 1.5);
-        
-        // Mediana
         g.append("line").attr("x1", x).attr("x2", x + w).attr("y1", yScale(stats.median)).attr("y2", yScale(stats.median)).attr("stroke", "#1e1e24").attr("stroke-width", 2.5);
-
+        
         // Outlier
-        g.selectAll(".outlier").data(stats.outliers).enter().append("circle").attr("class", "outlier").attr("cx", center).attr("cy", d => yScale(d)).attr("r", 2.5).attr("fill", color).attr("fill-opacity", 0.3).attr("stroke", color).attr("stroke-width", 1);
+        g.selectAll(".outlier").data(stats.outliers).enter().append("circle").attr("cx", center).attr("cy", d => yScale(d)).attr("r", 2).attr("fill", color).attr("fill-opacity", 0.3).attr("stroke", color).attr("stroke-width", 1);
     }
 
-    // Disegna usando i colori e le opacità passate come parametri
     drawBox(stats1, label1, color1, opacity1);
     drawBox(stats2, label2, color2, opacity2);
 }
