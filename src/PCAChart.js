@@ -112,7 +112,7 @@ g.append("g")
                  <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
                 <div style="margin-bottom: 2px;">
                     Stint: <strong>#${d.StintNumber || d.StintID}</strong> | 
-                    Mescola: <span style="color:${d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}; font-weight: bold;">${d.Compound}</span>
+                    Compound: <span style="color:${d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}; font-weight: bold;">${d.Compound}</span>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #444; margin: 4px 0;">
                 <div style="font-size: 0.85rem;">

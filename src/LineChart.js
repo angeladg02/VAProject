@@ -89,7 +89,7 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
 
     const xScale = d3.scaleLinear().domain(d3.extent(data, d => d.LapNumber)).range([0, innerWidth]);
     const yScale = d3.scaleLinear().domain([p90LapTime, minLapTime - 0.5]).range([innerHeight, 0]).clamp(true);
-    const rScale = d3.scaleLinear().domain([0, d3.max(data, d => d.TyreLife) || 30]).range([2, 6]);
+    const FixedRadius = 2.5;
 
     // --- ASSI E GRIGLIA ---
    // --- ASSI E GRIGLIA ---
@@ -148,7 +148,7 @@ g.append("g")
             .data(laps).enter().append("circle")
             .attr("cx", d => xScale(d.LapNumber))
             .attr("cy", d => yScale(d.LapTime))
-            .attr("r", d => rScale(d.TyreLife))
+            .attr("r", d => FixedRadius)
             .attr("fill", color)
             .attr("opacity", d => isLapInSelectedStints(d.Driver, d.LapNumber) ? 1 : 0)
             .attr("stroke", "#ffffff")
@@ -157,7 +157,7 @@ g.append("g")
     d3.select(this)
         .attr("opacity", 1)
         .attr("stroke-width", 2)
-        .attr("r", d => rScale(d.TyreLife) + 2); // Dynamic visual feedback
+        .attr("r", d => FixedRadius + 2); // Dynamic visual feedback
 
     const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
     
@@ -192,7 +192,7 @@ g.append("g")
     const selected = isLapInSelectedStints(d.Driver, d.LapNumber);
     d3.select(this)
         .attr("opacity", selected ? 1 : 0)
-        .attr("r", rScale(d.TyreLife)) // Ripristina raggio originale
+        .attr("r", FixedRadius) // Ripristina raggio originale
         .attr("stroke-width", 0.5);
     tooltip.classed("hidden", true);
 });

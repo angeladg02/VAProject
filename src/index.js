@@ -118,7 +118,7 @@ function initDashboard() {
                 <h1 style="color: #f30303; margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px;">
                     Monza 2024
                 </h1>
-                <span style="background: #333344; color: #fff; padding: 4px 6px; border-radius: 6px; font-size: 0.9rem; white-space: nowrap;">
+                <span style="background: #333344; color: #fff; padding: 4px 6px; font-weight: bold;border-radius: 6px; font-size: 0.9rem; white-space: nowrap;">
                     ${maxLaps} LAPS
                 </span>
             </div>
@@ -130,11 +130,11 @@ function initDashboard() {
                 </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                <div style="background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px; border-left: 2px solid #e10600;">
+                <div style="background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px; border-left: 2px solid  #00a1fe;">
                     <div style="font-size: 0.60rem; color: #888894; text-transform: uppercase;">Avg Degradation</div>
                     <div style="font-size: 0.85rem; font-weight: bold; color: #fff;">${avgDegradation.toFixed(3)} <span style="font-size: 0.6rem; font-weight: normal;">s/l</span></div>
                 </div>
-                <div style="background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px; border-left: 2px solid #ffd400;">
+                <div style="background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px; border-left: 2px solid #00a1fe;">
                     <div style="font-size: 0.60rem; color: #888894; text-transform: uppercase;">Pit Stops</div>
                     <div style="font-size: 0.85rem; font-weight: bold; color: #fff;">${totalPitStops}</div>
                 </div>
@@ -159,24 +159,27 @@ function initDashboard() {
     // =========================================================
     // 2. FUNZIONE HELPER PER AGGIORNARE LA SIDEBAR
     // =========================================================
-    // Questa funzione unisce i dati globali fissi con i dettagli dinamici del brush
     const updateSidebar = (specificHTML = "") => {
-        const panel = document.querySelector("#analytics-panel");
-        
-        // Se non c'è nessuna selezione, mostriamo dati medi extra come riempitivo
-        if (!specificHTML) {
-            const validDeg = stintsData.filter(d => d.DegradationSlope > 0);
-            const avgDegradation = validDeg.length > 0 ? d3.mean(validDeg, d => d.DegradationSlope) : 0;
-            const validLaps = rawLapsData.filter(d => +d.LapTimeSeconds > 0);
-            const fastestLap = validLaps.reduce((min, p) => +p.LapTimeSeconds < +min.LapTimeSeconds ? p : min, validLaps[0]);
+    const panel = document.querySelector("#analytics-panel");
+    
+    // Titolo fisso con linea sottile sopra per separare dalla Overview
+    const analyticsHeader = `
+        <div style="margin-top: 15px; margin-bottom: 10px;">
+            <h3 style="color: #888; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin: 0;">
+                Analytics
+            </h3>
+        </div>
+    `;
 
-            specificHTML = `
-                
-            `;
-        }
-        // Incolla tutto insieme
-        panel.innerHTML = globalOverviewHTML + '<div class="selection-details">' + specificHTML + '</div>';
-    };
+    // Se non c'è selezione, mostriamo un placeholder pulito
+    const content = specificHTML || `
+        <div style="color: #555; font-style: italic; font-size: 0.85rem; text-align: center; margin-top: 10px;">
+            Select data for comparison
+        </div>
+    `;
+
+    panel.innerHTML = globalOverviewHTML + analyticsHeader + '<div class="selection-details">' + content + '</div>';
+};
     const getComparativeStatsHTML = (selectedLaps, selectedStints, globalAvgPace, globalAvgDeg) => {
         if (!selectedLaps || selectedLaps.length === 0 || !selectedStints || selectedStints.length === 0) return '';
         
@@ -191,9 +194,9 @@ function initDashboard() {
         const isBetterDeg = deltaDeg < 0; 
 
         return `
-            <div style="margin-top: 6px; border-top: 1px dashed #333344; padding-top: 6px;">
+            <div style="margin-top: 6px; padding-top: 6px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <h3 style="color: #00ffcc; font-size: 0.85rem; text-transform: uppercase; margin: 0;">Analytics</h3>
+                   
                     
                     <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; padding: 2px;">
                         <button id="btn-toggle-pace" style="cursor:pointer; background: #00ffcc; color: #000; border:none; border-radius: 3px; font-size: 0.65rem; font-weight: bold; padding: 2px 6px; transition: 0.2s;">PACE</button>
@@ -207,7 +210,7 @@ function initDashboard() {
                         <div style="color: ${isFasterPace ? '#4caf50' : '#e10600'}; font-weight: bold; font-size: 0.85rem;">
                             ${isFasterPace ? '▼' : '▲'} ${Math.abs(deltaPace).toFixed(3)}s
                         </div>
-                        <div style="font-size: 0.65rem; color: #888894;">vs Globale</div>
+                        <div style="font-size: 0.65rem; color: #888894;">vs Global</div>
                     </div>
                     <div id="sidebar-boxplot-pace" style="width: 60%; height: 110px;"></div>
                 </div>
@@ -218,7 +221,7 @@ function initDashboard() {
                         <div style="color: ${isBetterDeg ? '#4caf50' : '#e10600'}; font-weight: bold; font-size: 0.85rem;">
                             ${isBetterDeg ? '▼' : '▲'} ${Math.abs(deltaDeg).toFixed(3)}
                         </div>
-                        <div style="font-size: 0.65rem; color: #888894;">vs Globale (s/l)</div>
+                        <div style="font-size: 0.65rem; color: #888894;">vs Global (s/l)</div>
                     </div>
                     <div id="sidebar-boxplot-deg" style="width: 60%; height: 110px;"></div>
                 </div>
@@ -268,8 +271,8 @@ function initDashboard() {
                 const label2 = `${s2.Driver} (${s2.Compound[0]})`;
 
                 let specificHTML = `
-                    <div style="margin-top: 10px; border-top: 1px dashed #333344; padding-top: 10px;">
-                        <h3 style="color: #00ffcc; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px;">Testa a Testa (Pace)</h3>
+                    <div style="margin-top: 10px;  padding-top: 10px;">
+                        <h3 style="color: #888; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px;">Pace 1 vs 1 </h3>
                         
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div style="width: 40%; font-size: 0.8rem; padding-right: 5px;">
@@ -277,7 +280,7 @@ function initDashboard() {
                                 <div style="color: #4caf50; font-weight: bold; font-size: 0.80rem; margin-top: 5px;">
                                     ${fasterDriver}
                                 </div>
-                                <div style="font-size: 0.70rem; color: #888894;">più veloce di ${delta.toFixed(3)}s</div>
+                                <div style="font-size: 0.70rem; color: #888894;"> ${delta.toFixed(3)}s  faster</div>
                             </div>
                             
                             <div id="sidebar-boxplot-pace" style="width: 60%; height: 110px;"></div>
@@ -313,13 +316,13 @@ function initDashboard() {
                 if (selectedLaps.length > 0 && finalSelection.length > 0) {
                     // DISEGNA PACE E DEGRADO
                     drawComparativeBoxplot(
-                        validLaps, selectedLaps, "Globale", "Selezione", 
+                        validLaps, selectedLaps, "Global", "Selected", 
                         "#888894", "#00ffcc", 0.15, 0.8, "#sidebar-boxplot-pace", 
                         d => +d.LapTimeSeconds, "s"
                     );
 
                     drawComparativeBoxplot(
-                        validDeg, finalSelection, "Globale", "Selezione", 
+                        validDeg, finalSelection, "Global", "Selected", 
                         "#888894", "#ff00ff", 0.15, 0.8, "#sidebar-boxplot-deg", 
                         d => +d.DegradationSlope, "s/l"
                     );
@@ -457,14 +460,14 @@ function initDashboard() {
             if (selectedLaps.length > 0 && selectedStints.length > 0) {
                 // 1. DISEGNA BOXPLOT PACE (Verde Acqua)
                 drawComparativeBoxplot(
-                    validLaps, selectedLaps, "Globale", "Selezione", 
+                    validLaps, selectedLaps, "Global", "Selected", 
                     "#888894", "#00ffcc", 0.15, 0.8, "#sidebar-boxplot-pace", 
                     d => +d.LapTimeSeconds, "s"
                 );
 
                 // 2. DISEGNA BOXPLOT DEGRADO (Viola Magenda)
                 drawComparativeBoxplot(
-                    validDeg, selectedStints, "Globale", "Selezione", 
+                    validDeg, selectedStints, "Global", "Selected", 
                     "#888894", "#ff00ff", 0.15, 0.8, "#sidebar-boxplot-deg", 
                     d => +d.DegradationSlope, "s/l"
                 );
@@ -551,14 +554,14 @@ function initDashboard() {
             if (selectedLaps.length > 0 && selectedStints.length > 0) {
                 // 1. BOXPLOT PACE (Verde Acqua)
                 drawComparativeBoxplot(
-                    validLaps, selectedLaps, "Globale", "Selezione", 
+                    validLaps, selectedLaps, "Global", "Selected", 
                     "#888894", "#00ffcc", 0.15, 0.8, "#sidebar-boxplot-pace", 
                     d => +d.LapTimeSeconds, "s"
                 );
 
                 // 2. BOXPLOT DEGRADO (Viola Magenda)
                 drawComparativeBoxplot(
-                    validDeg, selectedStints, "Globale", "Selezione", 
+                    validDeg, selectedStints, "Global", "Selected", 
                     "#888894", "#ff00ff", 0.15, 0.8, "#sidebar-boxplot-deg", 
                     d => +d.DegradationSlope, "s/l"
                 );
@@ -596,9 +599,7 @@ function initDashboard() {
 }
 
 
-// =========================================================
-// FUNZIONE PER IL BOXPLOT COMPARATIVO (MULTI-METRICA)
-// =========================================================
+
 // =========================================================
 // FUNZIONE PER IL BOXPLOT COMPARATIVO (SCROLL & ZOOM FIX)
 // =========================================================
