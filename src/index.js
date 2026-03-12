@@ -229,6 +229,7 @@ function initDashboard() {
     // 3. CALLBACKS DEI GRAFICI AGGIORNATI --> interazioni
     // =========================================================
     const callbacks = {
+      //brush sulla PCA
       onStintClick: (selectedData) => {
             if (!selectedData || selectedData.length === 0) {
                 callbacks.onReset();
@@ -250,12 +251,11 @@ function initDashboard() {
             drawPCAChart(pcaData, "#pca-chart", callbacks, finalSelection);
             drawRankingsChart(rawLapsData, "#position-chart", callbacks, finalSelection);
 
-            //controllo che siano selezionati esattamente 2 stint
+            // CASO A: TESTA A TESTA (2 STINT)
             if (finalSelection.length === 2 && finalSelection[0].StintID) {
                 const s1 = finalSelection[0];
                 const s2 = finalSelection[1];
                 
-                // Estraiamo i giri esatti per ciascuno dei due stint
                 const laps1 = validLaps.filter(d => d.Driver === s1.Driver && +d.LapNumber >= s1.LapStart && +d.LapNumber <= s1.LapEnd);
                 const laps2 = validLaps.filter(d => d.Driver === s2.Driver && +d.LapNumber >= s2.LapStart && +d.LapNumber <= s2.LapEnd);
 
@@ -264,7 +264,6 @@ function initDashboard() {
                 const delta = Math.abs(avg1 - avg2);
                 const fasterDriver = avg1 < avg2 ? s1.Driver : s2.Driver;
                 
-                // Creiamo le etichette per l'asse X usando Driver e prima lettera della Mescola (es. "VER (S)")
                 const label1 = `${s1.Driver} (${s1.Compound[0]})`;
                 const label2 = `${s2.Driver} (${s2.Compound[0]})`;
 
@@ -281,37 +280,71 @@ function initDashboard() {
                                 <div style="font-size: 0.70rem; color: #888894;">più veloce di ${delta.toFixed(3)}s</div>
                             </div>
                             
-                            <div id="sidebar-boxplot-container" style="width: 60%; height: 140px;"></div>
+                            <div id="sidebar-boxplot-pace" style="width: 60%; height: 110px;"></div>
                         </div>
                     </div>
                 `;
                 
                 updateSidebar(specificHTML);
                 
-                // Coloriamo i boxplot in base al Compound (Mescola) dei due stint
                 const color1 = s1.Compound === 'SOFT' ? '#e10600' : s1.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
                 const color2 = s2.Compound === 'SOFT' ? '#e10600' : s2.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
 
-                // Disegniamo il Boxplot passandogli i due stint. Opacità 0.8 per entrambi perché sono i due focus dell'analisi!
-                drawComparativeBoxplot(laps1, laps2, label1, label2, color1, color2, 0.8, 0.8, "#sidebar-boxplot-container");
+                // CORREZIONE: Passaggio degli accessori dinamici per il Pace
+                drawComparativeBoxplot(
+                    laps1, laps2, label1, label2, color1, color2, 0.8, 0.8, 
+                    "#sidebar-boxplot-pace", 
+                    d => +d.LapTimeSeconds, "s"
+                );
                 
             } else {
-                // -----------------------------------------------------------------
-                // LOGICA STANDARD (1 STINT O CLUSTER MULTIPLI) -> Mostra "Globale vs Selezione"
-                // -----------------------------------------------------------------
+                // CASO B: LOGICA STANDARD (1 STINT O CLUSTER MULTIPLI)
                 const isFullDriver = finalSelection.length > 1;
                 let html = `
-                    <h3 style="color: #00ffcc; font-size: 0.95rem;">${isFullDriver ? 'Profilo Pilota' : 'Dettaglio Stint'}</h3>
-                    <p style="font-size: 0.85rem;">Pilota: <strong>${driverName}</strong></p>
+                    
                 `;
                 
                 const selectedLaps = validLaps.filter(d => finalSelection.some(s => d.Driver === s.Driver && +d.LapNumber >= s.LapStart && +d.LapNumber <= s.LapEnd));
                 
-                html += getComparativeStatsHTML(selectedLaps, globalAvgLapTime);
+                // CORREZIONE: Passaggio dei 4 parametri esatti alla funzione
+                html += getComparativeStatsHTML(selectedLaps, finalSelection, globalAvgLapTime, avgDegradation);
                 updateSidebar(html);
                 
-                if (selectedLaps.length > 0) {
-                    drawComparativeBoxplot(validLaps, selectedLaps, "Globale", "Selezione", "#888894", "#00ffcc", 0.15, 0.8, "#sidebar-boxplot-container");
+                if (selectedLaps.length > 0 && finalSelection.length > 0) {
+                    // DISEGNA PACE E DEGRADO
+                    drawComparativeBoxplot(
+                        validLaps, selectedLaps, "Globale", "Selezione", 
+                        "#888894", "#00ffcc", 0.15, 0.8, "#sidebar-boxplot-pace", 
+                        d => +d.LapTimeSeconds, "s"
+                    );
+
+                    drawComparativeBoxplot(
+                        validDeg, finalSelection, "Globale", "Selezione", 
+                        "#888894", "#ff00ff", 0.15, 0.8, "#sidebar-boxplot-deg", 
+                        d => +d.DegradationSlope, "s/l"
+                    );
+
+                    // ATTIVAZIONE BOTTONI
+                    const btnPace = document.getElementById('btn-toggle-pace');
+                    const btnDeg = document.getElementById('btn-toggle-deg');
+                    const viewPace = document.getElementById('view-pace');
+                    const viewDeg = document.getElementById('view-deg');
+
+                    if(btnPace && btnDeg) {
+                        btnPace.addEventListener('click', () => {
+                            viewPace.style.display = 'flex';
+                            viewDeg.style.display = 'none';
+                            btnPace.style.background = '#00ffcc'; btnPace.style.color = '#000';
+                            btnDeg.style.background = 'transparent'; btnDeg.style.color = '#888894';
+                        });
+
+                        btnDeg.addEventListener('click', () => {
+                            viewPace.style.display = 'none';
+                            viewDeg.style.display = 'flex';
+                            btnDeg.style.background = '#ff00ff'; btnDeg.style.color = '#000';
+                            btnPace.style.background = 'transparent'; btnPace.style.color = '#888894';
+                        });
+                    }
                 }
             }
         },
@@ -470,6 +503,89 @@ function initDashboard() {
             updateSidebar(""); // Mostrerà i dati globali + le stat di performance medie
         },
 
+        onPCABrush: (activeStints) => {
+            if (!activeStints || activeStints.length === 0) {
+                drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
+                drawLineChart(rawLapsData, "#line-chart", callbacks, []);
+                drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, []);
+                drawRankingsChart(rawLapsData, "#position-chart", callbacks, []);
+                
+                updateSidebar(""); // Stringa vuota ripristina i dati di default
+                return;
+            }
+
+            // -------------------------------------------------------------
+            // FIX: TRADUZIONE DAI PUNTI DELLA PCA AGLI STINT REALI
+            // I punti della PCA potrebbero non avere LapStart e LapEnd.
+            // Li cerchiamo nel dataset principale 'stintsData' usando Driver e StintNumber (o StintID)
+            // -------------------------------------------------------------
+            const selectedStints = stintsData.filter(stint => {
+                return activeStints.some(pcaPoint => 
+                    (pcaPoint.StintID && pcaPoint.StintID === stint.StintID) || 
+                    (pcaPoint.Driver === stint.Driver && pcaPoint.StintNumber === stint.StintNumber) ||
+                    (pcaPoint.Driver === stint.Driver && pcaPoint.LapStart === stint.LapStart) // Fallback
+                );
+            });
+
+            // Filtriamo i giri corrispondenti agli stint selezionati nel cluster
+            const selectedLaps = validLaps.filter(d => 
+                selectedStints.some(s => d.Driver === s.Driver && +d.LapNumber >= s.LapStart && +d.LapNumber <= s.LapEnd)
+            );
+
+            // Re-render degli altri grafici
+            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
+            drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
+            drawParallelCoordinates(rawLapsData, "#pcp-chart", callbacks, selectedStints);
+            drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
+
+            // Costruzione HTML per la sidebar
+            let specificHTML = `
+                <h3 style="color: #00ffcc; font-size: 0.95rem;">Cluster PCA Selezionato</h3>
+                <p style="font-size: 0.85rem;">Stint nel cluster: <strong>${selectedStints.length}</strong></p>
+            `;
+
+            specificHTML += getComparativeStatsHTML(selectedLaps, selectedStints, globalAvgLapTime, avgDegradation);
+            updateSidebar(specificHTML);
+
+            // Disegno dei due boxplot interattivi
+            if (selectedLaps.length > 0 && selectedStints.length > 0) {
+                // 1. BOXPLOT PACE (Verde Acqua)
+                drawComparativeBoxplot(
+                    validLaps, selectedLaps, "Globale", "Selezione", 
+                    "#888894", "#00ffcc", 0.15, 0.8, "#sidebar-boxplot-pace", 
+                    d => +d.LapTimeSeconds, "s"
+                );
+
+                // 2. BOXPLOT DEGRADO (Viola Magenda)
+                drawComparativeBoxplot(
+                    validDeg, selectedStints, "Globale", "Selezione", 
+                    "#888894", "#ff00ff", 0.15, 0.8, "#sidebar-boxplot-deg", 
+                    d => +d.DegradationSlope, "s/l"
+                );
+
+                // LOGICA DEI BOTTONI TOGGLE
+                const btnPace = document.getElementById('btn-toggle-pace');
+                const btnDeg = document.getElementById('btn-toggle-deg');
+                const viewPace = document.getElementById('view-pace');
+                const viewDeg = document.getElementById('view-deg');
+
+                if(btnPace && btnDeg) {
+                    btnPace.addEventListener('click', () => {
+                        viewPace.style.display = 'flex';
+                        viewDeg.style.display = 'none';
+                        btnPace.style.background = '#00ffcc'; btnPace.style.color = '#000';
+                        btnDeg.style.background = 'transparent'; btnDeg.style.color = '#888894';
+                    });
+
+                    btnDeg.addEventListener('click', () => {
+                        viewPace.style.display = 'none';
+                        viewDeg.style.display = 'flex';
+                        btnDeg.style.background = '#ff00ff'; btnDeg.style.color = '#000';
+                        btnPace.style.background = 'transparent'; btnPace.style.color = '#888894';
+                    });
+                }
+            }
+        },
         onPitClick: (pitData) => { /* ... */ }
     };
 
