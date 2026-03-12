@@ -33,7 +33,7 @@ export function drawStrategyGantt(rawData, containerId, callbacks, selectedStint
     const width = containerNode.clientWidth || 800;
     const height = containerNode.clientHeight || 400;
     
-    const margin = { top: 5, right: 15, bottom: 15, left: 35 }; 
+    const margin = { top: 5, right: 15, bottom: 25, left: 35 }; 
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
