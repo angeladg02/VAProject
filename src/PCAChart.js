@@ -79,7 +79,18 @@ g.append("g")
     g.append("g").attr("class", "brush").call(brush);
 
     // 5. PUNTI (Minimalisti: colore neutro e raggio fisso)
+    // 5. PUNTI
     const tooltip = d3.select("#tooltip");
+
+    // Funzione helper per i colori delle mescole
+    const getCompoundColor = (compound) => {
+        if (compound === 'SOFT') return '#e10600';     // Rosso
+        if (compound === 'MEDIUM') return '#ffeb3b';   // Giallo
+        if (compound === 'HARD') return '#ffffff';     // Bianco
+        if (compound === 'INTERMEDIATE') return '#39B54A'; // Verde (opzionale)
+        if (compound === 'WET') return '#00AEEF';      // Blu (opzionale)
+        return '#cccccc'; // Fallback
+    };
 
     const points = g.append("g").attr("class", "points").selectAll("circle")
         .data(data)
@@ -88,10 +99,10 @@ g.append("g")
         .attr("cx", d => xScale(d.PC1))
         .attr("cy", d => yScale(d.PC2))
         .attr("r", 5) // Raggio fisso
-        .attr("fill", "#cccccc") // Colore neutro unico
+        .attr("fill", d => getCompoundColor(d.Compound)) // <-- COLORE DINAMICO IN BASE ALLA MESCOLA
         .attr("stroke", d => selectedStints.some(s => s.StintID === d.StintID) ? "#00ff00" : "#15151e")
         .attr("stroke-width", d => selectedStints.some(s => s.StintID === d.StintID) ? 2 : 0.5)
-        .style("opacity", d => (selectedStints.length === 0) ? 0.6 : (selectedStints.some(s => s.StintID === d.StintID) ? 1 : 0.2))
+        .style("opacity", d => (selectedStints.length === 0) ? 0.8 : (selectedStints.some(s => s.StintID === d.StintID) ? 1 : 0.2)) // Aumentata un po' l'opacità base per far risaltare i colori
         .style("cursor", "pointer")
         .on("click", (event, d) => callbacks?.onStintClick?.([d]))
       // ... (codice precedente dei punti)
