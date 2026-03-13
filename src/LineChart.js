@@ -78,7 +78,28 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
             if (callbacks && callbacks.onReset) callbacks.onReset();
         });
 
-    svg.append("defs").append("clipPath")
+    // --- DEFINIZIONE FILTRI PER PROFONDITÀ ---
+    const defs = svg.append("defs");
+    
+    // Filtro per dare un leggero stacco tra le linee (drop shadow leggera)
+    const filter = defs.append("filter")
+        .attr("id", "line-shadow")
+        .attr("x", "-20%")
+        .attr("y", "-20%")
+        .attr("width", "140%")
+        .attr("height", "140%");
+    filter.append("feGaussianBlur")
+        .attr("in", "SourceAlpha")
+        .attr("stdDeviation", "0.8");
+    filter.append("feOffset")
+        .attr("dx", "0")
+        .attr("dy", "0.5")
+        .attr("result", "offsetblur");
+    const feMerge = filter.append("feMerge");
+    feMerge.append("feMergeNode");
+    feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+
+    defs.append("clipPath")
         .attr("id", "clip")
         .append("rect")
         .attr("width", innerWidth)
@@ -92,25 +113,24 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
     const FixedRadius = 2.5;
 
     // --- ASSI E GRIGLIA ---
-   // --- ASSI E GRIGLIA ---
-g.append("g")
-    .attr("class", "grid")
-    .attr("stroke-opacity", 0.1)
-    .attr("color", "#888") // Aggiunto per uniformità
-    .call(d3.axisLeft(yScale).ticks(8).tickSize(-innerWidth).tickFormat(""));
+    g.append("g")
+        .attr("class", "grid")
+        .attr("stroke-opacity", 0.1)
+        .attr("color", "#888")
+        .call(d3.axisLeft(yScale).ticks(8).tickSize(-innerWidth).tickFormat(""));
 
-g.append("g")
-    .attr("transform", `translate(0,${innerHeight})`)
-    .call(d3.axisBottom(xScale).tickFormat(d => `L${d}`))
-    .attr("color", "#888") // Cambiato da default a #888
-    .selectAll("text")
-    .style("fill", "#888"); // Forza il colore del testo
+    g.append("g")
+        .attr("transform", `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(xScale).tickFormat(d => `L${d}`))
+        .attr("color", "#888")
+        .selectAll("text")
+        .style("fill", "#888");
 
-g.append("g")
-    .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => d.toFixed(1) + "s"))
-    .attr("color", "#888") // Cambiato da default a #888
-    .selectAll("text")
-    .style("fill", "#888");
+    g.append("g")
+        .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => d.toFixed(1) + "s"))
+        .attr("color", "#888")
+        .selectAll("text")
+        .style("fill", "#888");
 
     const plotArea = g.append("g").attr("clip-path", "url(#clip)");
 
@@ -140,9 +160,15 @@ g.append("g")
             .datum(laps)
             .attr("fill", "none")
             .attr("stroke", color)
-            .attr("stroke-width", hasSelection ? (isThisDriverSelected ? 3 : 1) : 1.2)
-            .attr("opacity", hasSelection ? (isThisDriverSelected ? 1 : 0.1) : 0.6)
-            .attr("d", lineGenerator);
+            // Aumentati spessori base: da 1.2 a 2.2 per visibilità a riposo
+            .attr("stroke-width", hasSelection ? (isThisDriverSelected ? 4.0 : 0.8) : 2.2)
+            // Opacità aumentata: da 0.6 a 0.8 per colori più vivaci a riposo
+            .attr("opacity", hasSelection ? (isThisDriverSelected ? 1 : 0.1) : 0.8)
+            .attr("d", lineGenerator)
+            .style("stroke-linejoin", "round")
+            .style("stroke-linecap", "round")
+            .style("filter", "url(#line-shadow)") // Applica lo stacco tra le linee
+            .style("transition", "stroke-width 0.2s, opacity 0.2s");
 
         circlesGroup.selectAll(`.circle-${driver}`)
             .data(laps).enter().append("circle")
@@ -153,49 +179,65 @@ g.append("g")
             .attr("opacity", d => isLapInSelectedStints(d.Driver, d.LapNumber) ? 1 : 0)
             .attr("stroke", "#ffffff")
             .attr("stroke-width", 0.5)
-           .on("mouseover", function(event, d) {
-    d3.select(this)
-        .attr("opacity", 1)
-        .attr("stroke-width", 2)
-        .attr("r", d => FixedRadius + 2); // Dynamic visual feedback
+            .on("mouseover", function(event, d) {
+                // Porta la linea del pilota in primo piano durante l'hover
+                d3.select(this.parentNode.parentNode).selectAll("path")
+                    .filter(pathData => pathData && pathData[0].Driver === d.Driver)
+                    .raise()
+                    .attr("stroke-width", 4.5)
+                    .attr("opacity", 1);
 
-    const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
-    
-    tooltip.classed("hidden", false)
-        .html(`
-            <div style="border-left: 4px solid ${driverColors.get(d.Driver)}; padding-left: 8px;">
-                <div style="font-weight: bold; font-size: 1rem;">${d.Driver}</div>
-                <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
+                d3.select(this)
+                    .attr("opacity", 1)
+                    .attr("stroke-width", 2)
+                    .attr("r", FixedRadius + 2)
+                    .raise();
+
+                const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px;">
-                    <div>Lap: <strong>L${d.LapNumber}</strong></div>
-                    <div>Time: <strong>${d.LapTime.toFixed(3)}s</strong></div>
-                </div>
+                tooltip.classed("hidden", false)
+                    .html(`
+                        <div style="border-left: 4px solid ${driverColors.get(d.Driver)}; padding-left: 8px;">
+                            <div style="font-weight: bold; font-size: 1rem;">${d.Driver}</div>
+                            <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px;">
+                                <div>Lap: <strong>L${d.LapNumber}</strong></div>
+                                <div>Time: <strong>${d.LapTime.toFixed(3)}s</strong></div>
+                            </div>
 
-                <div style="margin-top: 8px; font-size: 0.85rem;">
-                    <div>Compound: <strong style="color:${compColor}">${d.Compound}</strong></div>
-                    <div>Tyre Age: <strong>${d.TyreLife} laps</strong></div>
-                </div>
+                            <div style="margin-top: 8px; font-size: 0.85rem;">
+                                <div>Compound: <strong style="color:${compColor}">${d.Compound}</strong></div>
+                                <div>Tyre Age: <strong>${d.TyreLife} laps</strong></div>
+                            </div>
 
-                <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
-                
-                <div style="font-size: 0.75rem; color: #00ffcc;">
-                    Speed ST: <strong>${d.SpeedST || 'N/A'} km/h</strong>
-                </div>
-                ${d.IsSafetyCar ? '<div style="color: #ffd400; font-weight: bold; font-size: 0.7rem;">⚠️ SAFETY CAR PERIOD</div>' : ''}
-            </div>
-        `)
-        .style("left", (event.pageX + 15) + "px")
-        .style("top", (event.pageY - 28) + "px");
-})
-           .on("mouseout", function(event, d) {
-    const selected = isLapInSelectedStints(d.Driver, d.LapNumber);
-    d3.select(this)
-        .attr("opacity", selected ? 1 : 0)
-        .attr("r", FixedRadius) // Ripristina raggio originale
-        .attr("stroke-width", 0.5);
-    tooltip.classed("hidden", true);
-});
+                            <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
+                            
+                            <div style="font-size: 0.75rem; color: #00ffcc;">
+                                Speed ST: <strong>${d.SpeedST || 'N/A'} km/h</strong>
+                            </div>
+                            ${d.IsSafetyCar ? '<div style="color: #ffd400; font-weight: bold; font-size: 0.7rem;">⚠️ SAFETY CAR PERIOD</div>' : ''}
+                        </div>
+                    `)
+                    .style("left", (event.pageX + 15) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function(event, d) {
+                const selected = isLapInSelectedStints(d.Driver, d.LapNumber);
+                const isThisDriverSelected = isDriverSelected(d.Driver);
+
+                // Ripristina la linea
+                d3.select(this.parentNode.parentNode).selectAll("path")
+                    .filter(pathData => pathData && pathData[0].Driver === d.Driver)
+                    .attr("stroke-width", hasSelection ? (isThisDriverSelected ? 4.0 : 0.8) : 2.2)
+                    .attr("opacity", hasSelection ? (isThisDriverSelected ? 1 : 0.1) : 0.8);
+
+                d3.select(this)
+                    .attr("opacity", selected ? 1 : 0)
+                    .attr("r", FixedRadius)
+                    .attr("stroke-width", 0.5);
+                tooltip.classed("hidden", true);
+            });
     });
 
     // --- ANALISI STINT SELEZIONATI (Regressione e Crossover) ---
@@ -212,7 +254,8 @@ g.append("g")
             // Retta di regressione (Degrado)
             plotArea.append("line")
                 .attr("x1", startX).attr("y1", startY).attr("x2", endX).attr("y2", endY)
-                .attr("stroke", "#ffffff").attr("stroke-width", 2).attr("stroke-dasharray", "4,4");
+                .attr("stroke", "#ffffff").attr("stroke-width", 2.5).attr("stroke-dasharray", "4,4")
+                .style("filter", "drop-shadow(0px 0px 2px rgba(255,255,255,0.4))");
 
             // Banda colore del Team
             plotArea.append("polygon")
@@ -232,9 +275,11 @@ g.append("g")
                 if (crossoverLap > 0 && crossoverLap < 100) {
                     const cx = xScale(crossoverLap);
                     plotArea.append("line").attr("x1", cx).attr("y1", 0).attr("x2", cx).attr("y2", innerHeight)
-                        .attr("stroke", "#ff00ff").attr("stroke-width", 2).attr("stroke-dasharray", "5,5");
+                        .attr("stroke", "#ff00ff").attr("stroke-width", 2.5).attr("stroke-dasharray", "5,5");
                     plotArea.append("text").attr("x", cx + 8).attr("y", 20).attr("fill", "#ff00ff")
-                        .style("font-weight", "bold").text(`Crossover L${Math.round(crossoverLap)}`);
+                        .style("font-weight", "bold")
+                        .style("text-shadow", "0px 0px 3px rgba(0,0,0,0.8)")
+                        .text(`Crossover L${Math.round(crossoverLap)}`);
                 }
             }
         }

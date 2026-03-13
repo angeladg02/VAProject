@@ -17,7 +17,7 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     container.selectAll("*").remove();
 
     const node = container.node();
-    const margin = { top: 15, right: 29, bottom: 17, left: 15 };
+    const margin = { top: 15, right: 35, bottom: 20, left: 20 };
     const width = node.clientWidth - margin.left - margin.right;
     const height = node.clientHeight - margin.top - margin.bottom;
 
@@ -46,6 +46,47 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
         .call(d3.axisLeft(yScale).ticks(10))
         .attr("color", "#888");
 
+    // --- RIPRISTINO BRUSH 2D (RETTANGOLARE) ---
+    const brush = d3.brush()
+        .extent([[0, 0], [width, height]])
+        .on("end", brushed);
+
+    // Il brush viene aggiunto sopra un rettangolo invisibile per catturare bene i movimenti
+    svg.append("g")
+        .attr("class", "brush")
+        .call(brush);
+
+    function brushed(event) {
+        if (!event.selection) {
+            // Se il brush viene cancellato, non resettiamo tutto necessariamente, 
+            // ma se vuoi il comportamento originale: callbacks.onRankingBrush([], null, null);
+            return;
+        }
+
+        const [[x0, y0], [x1, y1]] = event.selection;
+        const minLap = Math.floor(xScale.invert(x0));
+        const maxLap = Math.ceil(xScale.invert(x1));
+        const posTop = yScale.invert(y0);
+        const posBottom = yScale.invert(y1);
+
+        // Seleziona solo i piloti che hanno almeno un punto (giro) dentro il box
+        const selectedDriversSet = new Set();
+        data.forEach(d => {
+            const lap = +d.LapNumber;
+            const pos = +d.Position;
+            if (lap >= minLap && lap <= maxLap && pos >= posTop && pos <= posBottom) {
+                selectedDriversSet.add(d.Driver);
+            }
+        });
+
+        if (callbacks.onRankingBrush) {
+            callbacks.onRankingBrush(Array.from(selectedDriversSet), minLap, maxLap);
+        }
+        
+        // Puliamo il brush visivo dopo la selezione per permettere di vedere le linee
+        d3.select(this).call(brush.move, null);
+    }
+
     const lineGenerator = d3.line()
         .x(d => xScale(+d.LapNumber))
         .y(d => yScale(+d.Position))
@@ -53,8 +94,6 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
 
     const dataByDriver = d3.group(data, d => d.Driver);
     const hasSelection = selectedStints.length > 0;
-    
-    // Set per identificare velocemente i piloti selezionati
     const selectedDriversNames = new Set(selectedStints.map(s => s.Driver));
 
     const linesGroup = svg.append("g").attr("class", "lines-group");
@@ -65,21 +104,21 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
         const finalPos = +lastLap.Position;
         const driverColor = getRankColor(finalPos);
 
-        // Disegno della linea
         const path = linesGroup.append("path")
             .datum(laps)
             .attr("fill", "none")
             .attr("stroke", driverColor)
-            .attr("stroke-width", isSelected ? 4 : 1.5)
-            .attr("opacity", hasSelection ? (isSelected ? 1 : 0.15) : 0.8)
+            .attr("stroke-width", isSelected ? 5.0 : 3.0)
+            .attr("opacity", hasSelection ? (isSelected ? 1 : 0.15) : 1)
             .attr("d", lineGenerator)
+            .style("stroke-linejoin", "round") 
+            .style("stroke-linecap", "round")
             .style("cursor", "pointer")
             .style("transition", "opacity 0.2s, stroke-width 0.2s");
 
-        // Se il pilota è selezionato, aggiungiamo il cartellino
+        // Cartellino Nome Pilota
         if (isSelected) {
             path.raise();
-
             svg.append("text")
                 .attr("x", xScale(lastLap.LapNumber) + 8)
                 .attr("y", yScale(lastLap.Position))
@@ -90,9 +129,10 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
                 .text(driver);
         }
 
-        // Interazioni
         path.on("mouseover", function(event) {
-            if (!isSelected) d3.select(this).attr("stroke-width", 3).attr("opacity", 1);
+            if (!isSelected) {
+                d3.select(this).attr("stroke-width", 4.5).attr("opacity", 1).raise();
+            }
             
             const lastLapNumber = d3.max(data, d => +d.LapNumber);
             const lastLapData = data.filter(d => +d.LapNumber === lastLapNumber);
@@ -115,13 +155,9 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
                     <div style="border-left: 4px solid ${driverColor}; padding-left: 8px;">
                         <div style="font-weight: bold; font-size: 1rem;">${driver}</div>
                         <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${teamName}</div>
-                        <div style="font-size: 0.85rem; color: #aaa;">
-                            Final Position: <strong>P${finalPos}</strong>
-                        </div>
+                        <div style="font-size: 0.85rem; color: #aaa;">Final Position: <strong>P${finalPos}</strong></div>
                         <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
-                        <div style="font-size: 0.8rem;">
-                            ${timeInfo}
-                        </div>
+                        <div style="font-size: 0.8rem;">${timeInfo}</div>
                     </div>
                 `)
                 .style("left", (event.pageX + 10) + "px")
@@ -130,28 +166,25 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
         .on("mouseout", function() {
             if (!isSelected) {
                 d3.select(this)
-                    .attr("stroke-width", 1.5)
-                    .attr("opacity", hasSelection ? 0.15 : 0.8);
+                    .attr("stroke-width", 3.0)
+                    .attr("opacity", hasSelection ? 0.15 : 1);
             }
             d3.select("#tooltip").classed("hidden", true);
         })
-        // ===== ECCO LA MODIFICA INTEGRATA =====
         .on("click", function(event) {
             if (!callbacks.onRankingBrush) return;
 
             let newSelectedDrivers = new Set(selectedDriversNames);
-            const isCtrlOrCmdPressed = event.ctrlKey || event.metaKey;
+            const isMultiSelect = event.ctrlKey || event.metaKey;
 
-            if (isCtrlOrCmdPressed) {
-                // Selezione Multipla
-                if (isSelected) {
+            if (isMultiSelect) {
+                if (newSelectedDrivers.has(driver)) {
                     newSelectedDrivers.delete(driver);
                 } else {
                     newSelectedDrivers.add(driver);
                 }
             } else {
-                // Selezione Singola
-                if (isSelected && newSelectedDrivers.size === 1) {
+                if (newSelectedDrivers.has(driver) && newSelectedDrivers.size === 1) {
                     newSelectedDrivers.clear();
                 } else {
                     newSelectedDrivers.clear();
@@ -166,7 +199,6 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
             } else {
                 let minLap = Infinity;
                 let maxLap = -Infinity;
-
                 driversArray.forEach(dName => {
                     const dLaps = dataByDriver.get(dName);
                     if (dLaps) {
@@ -176,10 +208,8 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
                         if (end > maxLap) maxLap = end;
                     }
                 });
-
                 callbacks.onRankingBrush(driversArray, minLap, maxLap);
             }
         });
-        // ======================================
     });
 }

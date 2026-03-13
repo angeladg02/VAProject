@@ -606,11 +606,12 @@ function initDashboard() {
 function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, opacity1, opacity2, containerSelector, valueAccessor, unit) {
     const container = d3.select(containerSelector);
     container.selectAll("*").remove(); 
-    
-    // Sicurezza: nascondiamo l'overflow per evitare che elementi esterni allarghino la pagina
     container.style("overflow", "hidden");
 
     if (!data1 || !data2 || data1.length === 0 || data2.length === 0) return;
+
+    // Determiniamo se è una selezione singola (tipico per il degrado di un solo stint)
+    const isSingleSelection = data2.length === 1;
 
     function getBoxplotStats(data) {
         let vals = data.map(valueAccessor).filter(d => d !== null && !isNaN(d)).sort(d3.ascending);
@@ -622,8 +623,6 @@ function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, op
                 vals = vals.filter(v => v <= fastest * 1.10); 
             }
         } else if (unit === 's/l') {
-            // Filtro di dominio (F1): ignoriamo degradi matematicamente impossibili/folli
-            // (es. maggiori di 0.5s al giro) per pulire i dati grezzi prima della statistica
             vals = vals.filter(v => v >= -0.2 && v <= 0.5);
         }
 
@@ -640,16 +639,19 @@ function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, op
     }
 
     const stats1 = getBoxplotStats(data1);
-    const stats2 = getBoxplotStats(data2);
+    let stats2 = null;
+    let singleValue = null;
 
-    if (!stats1 || !stats2) return;
+    if (isSingleSelection) {
+        singleValue = valueAccessor(data2[0]);
+    } else {
+        stats2 = getBoxplotStats(data2);
+    }
 
-    // --- FIX SCROLLING ORIZZONTALE ---
+    if (!stats1 || (!stats2 && !isSingleSelection)) return;
+
     const node = container.node();
     let width = node ? node.getBoundingClientRect().width : 0;
-    
-    // Se la larghezza è 0 (perché siamo nel tab "DEG" nascosto),
-    // copiamo la larghezza esatta dal contenitore "PACE" che in quel momento è visibile!
     if (width === 0 || width == null) {
         const visibleSibling = document.getElementById("sidebar-boxplot-pace");
         width = visibleSibling ? visibleSibling.getBoundingClientRect().width : 130; 
@@ -657,43 +659,44 @@ function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, op
 
     const height = 110; 
     const margin = { top: 5, right: 5, bottom: 18, left: 35 };
-
     const svg = container.append("svg").attr("width", width).attr("height", height);
 
-    // --- FIX SCHIACCIAMENTO (ZOOM INTELLIGENTE) ---
-    // Calcoliamo il dominio Y basandoci SOLO SUI BAFFI (min e max) e non sugli outlier,
-    // in questo modo il boxplot si "zoommerà" perfettamente sulla scatola!
-    let yMin = Math.min(stats1.min, stats2.min);
-    let yMax = Math.max(stats1.max, stats2.max);
+    // Calcolo del dominio Y considerando o il box 2 o il punto singolo
+    let yMin = stats1.min;
+    let yMax = stats1.max;
+    if (isSingleSelection) {
+        yMin = Math.min(yMin, singleValue);
+        yMax = Math.max(yMax, singleValue);
+    } else {
+        yMin = Math.min(yMin, stats2.min);
+        yMax = Math.max(yMax, stats2.max);
+    }
     
-    // Fallback se i due baffi dovessero essere identici
     if (yMin === yMax) {
         yMin -= (unit === 's/l' ? 0.02 : 0.5);
         yMax += (unit === 's/l' ? 0.02 : 0.5);
     }
     
-    const padding = (yMax - yMin) * 0.15; // 15% di respiro sopra e sotto i baffi
-
+    const padding = (yMax - yMin) * 0.15;
     const yScale = d3.scaleLinear()
         .domain([yMin - padding, yMax + padding])
         .range([height - margin.bottom, margin.top]);
 
+    // Se è selezione singola, usiamo solo un'asse (Global) per mostrare il punto sopra
     const xScale = d3.scaleBand()
-        .domain([label1, label2])
+        .domain(isSingleSelection ? [label1] : [label1, label2])
         .range([margin.left, width - margin.right])
         .paddingInner(0.3).paddingOuter(0.2);
 
-    // Griglia
+    // Griglia e Assi
     svg.append("g").attr("class", "grid").attr("transform", `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale).ticks(4).tickSize(-(width - margin.left - margin.right)).tickFormat(""))
         .selectAll("line").attr("stroke", "rgba(255,255,255,0.05)").attr("stroke-dasharray", "3,3");
 
-    // Asse Y 
     svg.append("g").attr("transform", `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale).ticks(4).tickFormat(d => d.toFixed(unit === 's/l' ? 3 : 1) + (unit === 's' ? 's' : '')))
         .selectAll("text").style("fill", "#888894").style("font-family", "monospace").style("font-size", "9px");
 
-    // Asse X
     svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`)
         .call(d3.axisBottom(xScale))
         .selectAll("text").style("fill", "#fff").style("font-size", "9px").style("font-weight", "bold");
@@ -714,12 +717,40 @@ function drawComparativeBoxplot(data1, data2, label1, label2, color1, color2, op
         g.append("rect").attr("x", x).attr("width", w).attr("y", yScale(stats.q3)).attr("height", Math.max(1, yScale(stats.q1) - yScale(stats.q3))).attr("fill", color).attr("fill-opacity", opacity).attr("stroke", color).attr("stroke-width", 1.5);
         g.append("line").attr("x1", x).attr("x2", x + w).attr("y1", yScale(stats.median)).attr("y2", yScale(stats.median)).attr("stroke", "#1e1e24").attr("stroke-width", 2.5);
         
-        // Outlier
         g.selectAll(".outlier").data(stats.outliers).enter().append("circle").attr("cx", center).attr("cy", d => yScale(d)).attr("r", 2).attr("fill", color).attr("fill-opacity", 0.3).attr("stroke", color).attr("stroke-width", 1);
     }
 
+    // Disegniamo sempre il box globale
     drawBox(stats1, label1, color1, opacity1);
-    drawBox(stats2, label2, color2, opacity2);
+
+    if (isSingleSelection) {
+        // CASO SINGOLO: Disegniamo un punto (marker) sul box globale
+        const x = xScale(label1);
+        const w = xScale.bandwidth();
+        const center = x + w / 2;
+        
+        svg.append("circle")
+            .attr("cx", center)
+            .attr("cy", yScale(singleValue))
+            .attr("r", 5)
+            .attr("fill", color2)
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2)
+            .style("filter", `drop-shadow(0 0 3px ${color2})`);
+            
+        // Aggiungiamo un'etichetta per il valore singolo
+        svg.append("text")
+            .attr("x", center + 8)
+            .attr("y", yScale(singleValue))
+            .attr("dy", "0.35em")
+            .style("fill", color2)
+            .style("font-size", "9px")
+            .style("font-weight", "bold")
+            .text(singleValue.toFixed(3));
+    } else {
+        // CASO MULTIPLO: Disegniamo il secondo box accanto al primo
+        drawBox(stats2, label2, color2, opacity2);
+    }
 }
 
 initDashboard();
