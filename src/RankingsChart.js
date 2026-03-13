@@ -17,7 +17,6 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     container.selectAll("*").remove();
 
     const node = container.node();
-    // Aumentiamo il margine destro per far stare i nomi dei piloti (cartellini)
     const margin = { top: 15, right: 29, bottom: 17, left: 15 };
     const width = node.clientWidth - margin.left - margin.right;
     const height = node.clientHeight - margin.top - margin.bottom;
@@ -46,13 +45,6 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
     svg.append("g")
         .call(d3.axisLeft(yScale).ticks(10))
         .attr("color", "#888");
-
-    // Brush layer (sotto le linee per permettere interazione click/hover)
-    const brush = d3.brush()
-        .extent([[0, 0], [width, height]])
-        .on("end", brushed);
-
-    svg.append("g").attr("class", "brush").call(brush);
 
     const lineGenerator = d3.line()
         .x(d => xScale(+d.LapNumber))
@@ -84,9 +76,9 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
             .style("cursor", "pointer")
             .style("transition", "opacity 0.2s, stroke-width 0.2s");
 
-        // Se il pilota è selezionato (dal brush o click), aggiungiamo il cartellino
+        // Se il pilota è selezionato, aggiungiamo il cartellino
         if (isSelected) {
-            path.raise(); // Porta la linea sopra le altre
+            path.raise();
 
             svg.append("text")
                 .attr("x", xScale(lastLap.LapNumber) + 8)
@@ -98,47 +90,43 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
                 .text(driver);
         }
 
-        // Interazioni Hover
+        // Interazioni
         path.on("mouseover", function(event) {
-    if (!isSelected) d3.select(this).attr("stroke-width", 3).attr("opacity", 1);
-    
-    // LOGIC FOR FINAL GAP
-    const lastLapNumber = d3.max(data, d => +d.LapNumber);
-    const lastLapData = data.filter(d => +d.LapNumber === lastLapNumber);
-    const winner = lastLapData.find(d => +d.Position === 1);
-    const currentDriverFinal = lastLapData.find(d => d.Driver === driver);
+            if (!isSelected) d3.select(this).attr("stroke-width", 3).attr("opacity", 1);
+            
+            const lastLapNumber = d3.max(data, d => +d.LapNumber);
+            const lastLapData = data.filter(d => +d.LapNumber === lastLapNumber);
+            const winner = lastLapData.find(d => +d.Position === 1);
+            const currentDriverFinal = lastLapData.find(d => d.Driver === driver);
+            const teamName = laps[0].Team || "N/A";
+            
+            let timeInfo = "";
+            if (currentDriverFinal && winner) {
+                if (driver === winner.Driver) {
+                    timeInfo = `<div style="color: #ffd400; font-weight: bold; margin-top: 4px;">🏆 RACE WINNER</div>`;
+                } else {
+                    const gap = currentDriverFinal.LapStartSeconds - winner.LapStartSeconds;
+                    timeInfo = `<div style="margin-top: 4px;">Final Gap: <strong>+${gap.toFixed(3)}s</strong></div>`;
+                }
+            }
 
-    // RECUPERO IL TEAM DAI DATI (laps è l'array di giri del pilota corrente)
-    const teamName = laps[0].Team || "N/A";
-    
-    let timeInfo = "";
-    if (currentDriverFinal && winner) {
-        if (driver === winner.Driver) {
-            timeInfo = `<div style="color: #ffd400; font-weight: bold; margin-top: 4px;">🏆 RACE WINNER</div>`;
-        } else {
-            const gap = currentDriverFinal.LapStartSeconds - winner.LapStartSeconds;
-            timeInfo = `<div style="margin-top: 4px;">Final Gap: <strong>+${gap.toFixed(3)}s</strong></div>`;
-        }
-    }
-
-    d3.select("#tooltip").classed("hidden", false)
-        .html(`
-            <div style="border-left: 4px solid ${driverColor}; padding-left: 8px;">
-                <div style="font-weight: bold; font-size: 1rem;">${driver}</div>
-                <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${teamName}</div>
-                <div style="font-size: 0.85rem; color: #aaa;">
-                    Final Position: <strong>P${finalPos}</strong>
-                </div>
-                <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${driver.team}</div>
-                <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
-                <div style="font-size: 0.8rem;">
-                    ${timeInfo}
-                </div>
-            </div>
-        `)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 20) + "px");
-})
+            d3.select("#tooltip").classed("hidden", false)
+                .html(`
+                    <div style="border-left: 4px solid ${driverColor}; padding-left: 8px;">
+                        <div style="font-weight: bold; font-size: 1rem;">${driver}</div>
+                        <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${teamName}</div>
+                        <div style="font-size: 0.85rem; color: #aaa;">
+                            Final Position: <strong>P${finalPos}</strong>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
+                        <div style="font-size: 0.8rem;">
+                            ${timeInfo}
+                        </div>
+                    </div>
+                `)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 20) + "px");
+        })
         .on("mouseout", function() {
             if (!isSelected) {
                 d3.select(this)
@@ -147,39 +135,51 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
             }
             d3.select("#tooltip").classed("hidden", true);
         })
-        // Dentro RankingsChart.js, nel ciclo dataByDriver.forEach
-path.on("click", function(event, laps) {
-    if (callbacks.onStintClick) {
-        // Passiamo un oggetto che contenga il nome del pilota
-        // in modo che index.js sappia chi deve "accendere" ovunque
-        callbacks.onStintClick([{ Driver: driver }]); 
-    }
-});
-    });
+        // ===== ECCO LA MODIFICA INTEGRATA =====
+        .on("click", function(event) {
+            if (!callbacks.onRankingBrush) return;
 
-    function brushed(event) {
-        if (!event.selection) {
-            if (callbacks.onRankingBrush) callbacks.onRankingBrush([], null, null);
-            return;
-        }
+            let newSelectedDrivers = new Set(selectedDriversNames);
+            const isCtrlOrCmdPressed = event.ctrlKey || event.metaKey;
 
-        const [[x0, y0], [x1, y1]] = event.selection;
-        const minLap = Math.floor(xScale.invert(x0));
-        const maxLap = Math.ceil(xScale.invert(x1));
-        const posTop = yScale.invert(y0);
-        const posBottom = yScale.invert(y1);
+            if (isCtrlOrCmdPressed) {
+                // Selezione Multipla
+                if (isSelected) {
+                    newSelectedDrivers.delete(driver);
+                } else {
+                    newSelectedDrivers.add(driver);
+                }
+            } else {
+                // Selezione Singola
+                if (isSelected && newSelectedDrivers.size === 1) {
+                    newSelectedDrivers.clear();
+                } else {
+                    newSelectedDrivers.clear();
+                    newSelectedDrivers.add(driver);
+                }
+            }
 
-        const selectedDriversSet = new Set();
-        data.forEach(d => {
-            const lap = +d.LapNumber;
-            const pos = +d.Position;
-            if (lap >= minLap && lap <= maxLap && pos >= posTop && pos <= posBottom) {
-                selectedDriversSet.add(d.Driver);
+            const driversArray = Array.from(newSelectedDrivers);
+
+            if (driversArray.length === 0) {
+                callbacks.onRankingBrush([], null, null);
+            } else {
+                let minLap = Infinity;
+                let maxLap = -Infinity;
+
+                driversArray.forEach(dName => {
+                    const dLaps = dataByDriver.get(dName);
+                    if (dLaps) {
+                        const start = d3.min(dLaps, l => +l.LapNumber);
+                        const end = d3.max(dLaps, l => +l.LapNumber);
+                        if (start < minLap) minLap = start;
+                        if (end > maxLap) maxLap = end;
+                    }
+                });
+
+                callbacks.onRankingBrush(driversArray, minLap, maxLap);
             }
         });
-
-        if (callbacks.onRankingBrush) {
-            callbacks.onRankingBrush(Array.from(selectedDriversSet), minLap, maxLap);
-        }
-    }
+        // ======================================
+    });
 }
