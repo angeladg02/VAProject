@@ -120,67 +120,56 @@ g.append("g")
 
     g.select(".domain").remove();
 
-    // 6. TOOLTIP E HELPER SELEZIONE
-    const tooltip = d3.select("#tooltip");
-    
-    // Controlla l'array globale passato da index.js
-    const isStintSelected = (d) => selectedStints.some(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
+// --- 6. TOOLTIP E HELPER SELEZIONE ---
+const tooltip = d3.select("#tooltip");
+const isStintSelected = (d) => selectedStints.some(s => s.Driver === d.Driver && s.StintNumber === d.StintNumber);
 
-    // 7. DISEGNO DEGLI STINT
-    const stintsGroup = g.append("g").attr("class", "stints-layer");
+// --- 7. DISEGNO DEGLI STINT ---
+const stintsGroup = g.append("g").attr("class", "stints-layer");
 
-    stintsGroup.selectAll(".stint-rect")
-        .data(data)
-        .enter()
-        .append("rect")
-        .attr("class", "stint-rect")
-        .attr("x", d => xScale(d.LapStart))
-        .attr("y", d => yScale(d.Driver))
-        .attr("width", d => Math.max(0, xScale(d.LapEnd) - xScale(d.LapStart)))
-        .attr("height", yScale.bandwidth())
-        .attr("fill", d => `url(#grad-${d.Compound})`)
-        // Opacità rimossa! I colori rimarranno sempre accesi.
-        .attr("stroke", d => isStintSelected(d) ? "#00ff00" : "#15151e")
-        .attr("stroke-width", d => isStintSelected(d) ? 3 : 1.5)
-        .style("cursor", "pointer")
-            
-       .on("mouseover", function(event, d) {
-    d3.select(this)
-        .attr("stroke", "#ffffff")
-        .attr("stroke-width", 2);
+stintsGroup.selectAll(".stint-rect")
+    .data(data)
+    .enter()
+    .append("rect")
+    .attr("class", "stint-rect")
+    .attr("x", d => xScale(d.LapStart))
+    .attr("y", d => yScale(d.Driver))
+    .attr("width", d => Math.max(0, xScale(d.LapEnd) - xScale(d.LapStart)))
+    .attr("height", yScale.bandwidth())
+    .attr("fill", d => `url(#grad-${d.Compound})`)
+    .attr("stroke", d => isStintSelected(d) ? "#00ff00" : "#15151e")
+    .attr("stroke-width", d => isStintSelected(d) ? 3 : 1.5)
+    .style("cursor", "pointer")
+    .on("mouseover", function(event, d) {
+        d3.select(this)
+            .attr("stroke", "#ffffff")
+            .attr("stroke-width", 2);
 
-    tooltip.classed("hidden", false)
-        .html(`
-            <div style="border-left: 4px solid ${COMPOUND_COLORS[d.Compound] || '#888'}; padding-left: 8px;">
-                <div style="font-weight: bold; font-size: 1rem; margin-bottom: 2px;">
-                    ${d.Driver} <span style="font-weight: normal; font-size: 0.8rem; color: #aaa;">- Stint #${d.StintNumber}</span>
-                </div>
-                <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
-                
-                <div style="margin-bottom: 5px; font-size: 0.9rem;">
-                    Compound: <strong style="color:${COMPOUND_COLORS[d.Compound]}">${d.Compound}</strong>
-                </div>
+        tooltip.classed("hidden", false)
+            .html(`
+                <div style="border-left: 4px solid ${COMPOUND_COLORS[d.Compound] || '#888'}; padding-left: 8px;">
+                    <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                        <span>${d.Driver} <span style="font-weight:normal; color:#aaa;">#${d.StintNumber}</span></span>
+                        <span style="color:${COMPOUND_COLORS[d.Compound]}">${d.Compound}</span>
+                    </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px; font-size: 0.85rem;">
-                    <div>Laps: <strong>${d.LapStart} - ${d.LapEnd}</strong></div>
-                    <div>Stint Length: <strong>${d.TotalLaps}</strong></div>
-                </div>
-
-                <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
-
-                <div style="font-size: 0.85rem;">
-                    <div>Avg Lap Time: <strong>${d.AvgLapTime.toFixed(3)}s</strong></div>
-                    <div>Degradation: <strong>${d.DegradationSlope.toFixed(3)} s/lap</strong></div>
-                    <div style="margin-top: 4px; color: #aaa; font-size: 0.75rem;">
-                        Total Tyre Life: ${d.TyreLifeStart + d.TotalLaps} laps
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 4px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px;">
+                        <div>Laps: <b>${d.LapStart}-${d.LapEnd}</b></div>
+                        <div>Total: <b>${d.TotalLaps}</b></div>
+                        <div>Avg Time: <b>${d.AvgLapTime.toFixed(3)}s</b></div>
+                        <div>Degrad: <b>${d.DegradationSlope.toFixed(3)}</b></div>
                     </div>
                 </div>
-            </div>
-        `);
-
-    // Inizializza posizione (sarà rifinita da mousemove)
-    updateTooltipPosition(event);
-})
+            `);
+        updateTooltipPosition(event);
+    })
+    .on("mousemove", (event) => updateTooltipPosition(event))
+    .on("mouseout", function(event, d) {
+        const isSelected = isStintSelected(d);
+        d3.select(this).attr("stroke", isSelected ? "#00ff00" : "#15151e")
+                       .attr("stroke-width", isSelected ? 3 : 1.5);
+        tooltip.classed("hidden", true);
+    })
 .on("mousemove", function(event) {
     updateTooltipPosition(event);
 })
@@ -243,7 +232,7 @@ g.append("g")
         .on("mouseover", function(event, d) {
             d3.select(this).attr("fill", "#ffffff").attr("transform", "translate(0, -5) scale(1.5) rotate(180)");
             tooltip.classed("hidden", false)
-                   .html(`<strong>Pit Stop</strong><br>Driver: ${d.Driver}<br>Giro: ${d.LapEnd}`)
+                   .html(`<strong>Pit Stop</strong><br>Driver: ${d.Driver}<br>Lap: ${d.LapEnd}`)
                    .style("left", (event.pageX + 10) + "px")
                    .style("top", (event.pageY - 20) + "px");
         })
@@ -252,19 +241,37 @@ g.append("g")
             tooltip.classed("hidden", true);
         });
 }
+
+   // ... resto del codice (on click, ecc.)
+
+// --- FUNZIONE POSITION OTTIMIZZATA (Strategia 1 + 2 con grande offset verticale) ---
 function updateTooltipPosition(event) {
     const tooltip = d3.select("#tooltip");
-    const tooltipNode = tooltip.node();
-    const tooltipWidth = tooltipNode.offsetWidth;
-    const pageWidth = window.innerWidth;
+    const node = tooltip.node();
+    if (!node) return;
+
+    const rect = node.getBoundingClientRect();
+    const padding = 20;            // Distanza minima dai bordi della finestra
+    const verticalDistance = 120;  // DISTANZA DAL CURSORE: aumentata per non coprire i dati vicini
     
-    // Se il tooltip eccede il bordo destro, spostalo a sinistra del cursore
-    let xPos = event.pageX + 15;
-    if (xPos + tooltipWidth > pageWidth) {
-        xPos = event.pageX - tooltipWidth - 15;
+    let x = event.pageX - (rect.width / 2); // Centra il tooltip orizzontalmente rispetto al mouse
+    let y = event.pageY - rect.height - verticalDistance; // Di base, lo posiziona MOLTO SOPRA
+
+    // --- LOGICA DI SICUREZZA PER LA PARTE SUPERIORE ---
+    // Se il cursore è nella metà superiore dello schermo o il tooltip esce sopra (y < padding)
+    if (event.clientY < (rect.height + verticalDistance + padding)) {
+        // Sposta il tooltip MOLTO SOTTO il cursore
+        y = event.pageY + verticalDistance;
+    }
+
+    // --- CORREZIONI ORIZZONTALI (per non uscire dai lati) ---
+    if (x < padding) x = padding;
+    if (x + rect.width > window.innerWidth - padding) {
+        x = window.innerWidth - rect.width - padding;
     }
 
     tooltip
-        .style("left", xPos + "px")
-        .style("top", (event.pageY - 28) + "px");
+        .style("left", x + "px")
+        .style("top", y + "px")
+        .style("transform", "none"); // Rimuoviamo eventuali trasformazioni CSS che possono interferire
 }

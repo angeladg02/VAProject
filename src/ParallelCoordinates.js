@@ -10,12 +10,11 @@ const COMPOUND_COLORS = {
 };
 
 export function drawParallelCoordinates(rawData, containerId, callbacks, selectedStints = []) {
-    // 1. AGGREGAZIONE E CALCOLO ANALYTICS (DELTA E CONSISTENZA)
+    // 1. AGGREGAZIONE E CALCOLO ANALYTICS
     const stintsMap = new Map();
     let currentStint = null;
     let prevLap = null;
 
-    // Calcolo Benchmark: Migliori tempi assoluti per settore nella gara
     const bestS1 = d3.min(rawData, d => +d.Sector1Seconds > 0 ? +d.Sector1Seconds : Infinity);
     const bestS2 = d3.min(rawData, d => +d.Sector2Seconds > 0 ? +d.Sector2Seconds : Infinity);
     const bestS3 = d3.min(rawData, d => +d.Sector3Seconds > 0 ? +d.Sector3Seconds : Infinity);
@@ -44,8 +43,6 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
                 s2: +d.Sector2Seconds, 
                 s3: +d.Sector3Seconds, 
                 speed: +d.SpeedST, 
-                speedFL: +d.SpeedFL,
-                temp: +d.TrackTemp,
                 time: +d.LapTimeSeconds
             });
         }
@@ -59,18 +56,16 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         const avgS3 = d3.mean(s.laps, l => l.s3);
 
         return {
+            StintID: s.id,
             Driver: s.Driver,
             Compound: s.Compound,
             LapStart: s.LapStart,
             LapEnd: s.LapEnd,
             StintLength: s.laps.length,
-            // Valori Derivati: Delta rispetto al leader
             "S1 Delta": avgS1 - bestS1,
             "S2 Delta": avgS2 - bestS2,
             "S3 Delta": avgS3 - bestS3,
             "Speed ST": d3.mean(s.laps, l => l.speed),
-            "Speed FL": d3.mean(s.laps, l => l.speedFL),
-            "Track Temp": d3.mean(s.laps, l => l.temp),
             "Consistency Std": d3.deviation(s.laps, l => l.time) || 0
         };
     }).filter(d => d.StintLength > 2);
@@ -84,14 +79,13 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
     const node = container.node();
     const width = node.clientWidth || 800;
     const height = node.clientHeight || 300;
-    const margin = { top: 30, right: 20, bottom: 10, left: 20 };
+    const margin = { top: 35, right: 25, bottom: 15, left: 25 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
     const svg = container.append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .style("display", "block")
         .on("dblclick", (event) => {
             event.preventDefault();
             if (callbacks?.onReset) callbacks.onReset();
@@ -99,26 +93,24 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
 
     const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // 3. DIMENSIONI E SCALE
-    // Ordine: Contesto -> Performance -> Meccanica
-    const dimensions = ["StintLength", "Track Temp", "S1 Delta", "S2 Delta", "S3 Delta", "Speed ST", "Speed FL", "Consistency Std"];
+    // 3. SCALE
+    const dimensions = ["StintLength", "S1 Delta", "S2 Delta", "S3 Delta", "Speed ST", "Consistency Std"];
 
     const y = {};
     dimensions.forEach(dim => {
+        const extent = d3.extent(validData, d => d[dim]);
         if (dim.includes("Delta") || dim.includes("Std")) {
-            // Delta e Std: Lo ZERO (migliore) deve stare in ALTO
-            y[dim] = d3.scaleLinear().domain(d3.extent(validData, d => d[dim])).range([0, innerHeight]); 
+            y[dim] = d3.scaleLinear().domain(extent).range([0, innerHeight]); 
         } else {
-            y[dim] = d3.scaleLinear().domain(d3.extent(validData, d => d[dim])).range([innerHeight, 0]);
+            y[dim] = d3.scaleLinear().domain(extent).range([innerHeight, 0]);
         }
     });
 
     const x = d3.scalePoint().range([0, innerWidth]).padding(0.8).domain(dimensions);
-
-    // 4. DISEGNO LINEE E TOOLTIP
     const lineGenerator = d => d3.line()(dimensions.map(p => [x(p), y[p](d[p])]));
     const tooltip = d3.select("#tooltip");
 
+    // 4. DISEGNO LINEE
     const lines = g.append("g")
         .attr("class", "lines")
         .selectAll("path")
@@ -131,95 +123,55 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
         .style("stroke-width", 1.5)
         .style("opacity", 0.4)
         .style("cursor", "pointer")
-       .on("mouseover", function(event, d) {
+        .on("mouseover", function(event, d) {
+            d3.select(this).style("stroke-width", 4).style("opacity", 1).raise();
 
-    d3.select(this)
-        .style("stroke-width", 4)
-        .style("opacity", 1)
-        .raise();
-
-    tooltip.classed("hidden", false)
-        .html(`
-            <div style="border-left:3px solid ${COMPOUND_COLORS[d.Compound] || '#888'}; padding-left:6px; max-width:220px">
-
-                <div style="font-weight:600; font-size:0.9rem;">
-                    ${d.Driver} 
-                    <span style="color:#aaa; font-weight:400">(${d.Compound})</span>
-                </div>
-
-                <div style="font-size:0.75rem; color:#aaa; margin-bottom:4px">
-                    Laps ${d.LapStart}-${d.LapEnd}
-                </div>
-
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 6px; font-size:0.78rem">
-
-                    <div>S1</div>
-                    <div style="color:#00ffcc">+${d["S1 Delta"].toFixed(3)}s</div>
-
-                    <div>S2</div>
-                    <div style="color:#00ffcc">+${d["S2 Delta"].toFixed(3)}s</div>
-
-                    <div>S3</div>
-                    <div style="color:#00ffcc">+${d["S3 Delta"].toFixed(3)}s</div>
-
-                    <div>Consistency</div>
-                    <div>${d["Consistency Std"].toFixed(3)}s</div>
-
-                    <div>Speed ST</div>
-                    <div>${d["Speed ST"] ? d["Speed ST"].toFixed(0) : "N/A"} km/h</div>
-
-                </div>
-            </div>
-        `);
-
-    // --- Posizionamento intelligente ---
-    const tooltipWidth = 220;
-    const tooltipHeight = 120;
-
-    let x = event.pageX + 15;
-    let y = event.pageY - 20;
-
-    if (x + tooltipWidth > window.innerWidth) {
-        x = event.pageX - tooltipWidth - 15;
-    }
-
-    if (y + tooltipHeight > window.innerHeight) {
-        y = event.pageY - tooltipHeight - 15;
-    }
-
-    tooltip
-        .style("left", x + "px")
-        .style("top", y + "px");
-
-})
-        .on("mouseout", function() { updateLines(); tooltip.classed("hidden", true); })
-        .on("click", (event, d) => callbacks?.onPCPBrush?.([d]));
+            tooltip.classed("hidden", false)
+                .html(`
+                    <div style="border-left:3px solid ${COMPOUND_COLORS[d.Compound] || '#888'}; padding-left:8px;">
+                        <div style="font-weight:600; font-size:0.9rem; display:flex; justify-content:space-between;">
+                            <span>${d.Driver} <span style="font-weight:400; color:#aaa;">(${d.Compound})</span></span>
+                            <span style="color:#aaa; font-weight:400; font-size:0.75rem;">L${d.LapStart}-${d.LapEnd}</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px 8px; font-size:0.72rem; background:rgba(255,255,255,0.03); padding:6px; border-radius:4px; margin-top:4px;">
+                            <div style="color:#00ffcc;">S1: <b>+${d["S1 Delta"].toFixed(3)}s</b></div>
+                            <div style="color:#00ffcc;">S2: <b>+${d["S2 Delta"].toFixed(3)}s</b></div>
+                            <div style="color:#00ffcc;">S3: <b>+${d["S3 Delta"].toFixed(3)}s</b></div>
+                            <div style="grid-column:span 3; border-top:1px solid #444; margin:2px 0;"></div>
+                            <div>Speed: <b>${d["Speed ST"] ? d["Speed ST"].toFixed(0) : "N/A"}</b></div>
+                            <div style="grid-column:span 2;">Consistency: <b>${d["Consistency Std"].toFixed(3)}s</b></div>
+                        </div>
+                    </div>
+                `);
+            updatePCPTooltipPosition(event);
+        })
+        .on("mousemove", (event) => updatePCPTooltipPosition(event))
+        .on("mouseout", function() { 
+            updateLines(); 
+            tooltip.classed("hidden", true); 
+        })
+        .on("click", (event, d) => callbacks?.onStintClick?.([d]));
 
     // 5. ASSI E BRUSH
     const selections = new Map();
 
-  // 5. ASSI E BRUSH
-const axes = g.selectAll(".axis")
-    .data(dimensions)
-    .enter().append("g")
-    .attr("class", "axis")
-    .attr("transform", d => `translate(${x(d)},0)`)
-    .each(function(d) { d3.select(this).call(d3.axisLeft(y[d]).ticks(5)); });
+    const axes = g.selectAll(".axis")
+        .data(dimensions)
+        .enter().append("g")
+        .attr("class", "axis")
+        .attr("transform", d => `translate(${x(d)},0)`)
+        .each(function(d) { d3.select(this).call(d3.axisLeft(y[d]).ticks(5)); });
 
-axes.selectAll("text")
-    .style("fill", "#888") // Cambiato da #f5f5f5
-    .style("font-size", "10px");
+    axes.selectAll("text").style("fill", "#888").style("font-size", "10px");
+    axes.selectAll("path, line").style("stroke", "#888");
 
-axes.selectAll("path, line")
-    .style("stroke", "#888"); // Uniformato
-
-axes.append("text")
-    .style("text-anchor", "middle")
-    .attr("y", -15)
-    .text(d => d)
-    .style("fill", "#888") // Cambiato da #f5f5f5
-    .style("font-weight", "bold")
-    .style("font-size", "12px");
+    axes.append("text")
+        .style("text-anchor", "middle")
+        .attr("y", -15)
+        .text(d => d)
+        .style("fill", "#888")
+        .style("font-weight", "bold")
+        .style("font-size", "11px");
 
     axes.append("g")
         .attr("class", "brush")
@@ -239,15 +191,13 @@ axes.append("text")
             const val2 = y[dim].invert(selection[1]);
             selections.set(dim, [Math.min(val1, val2), Math.max(val1, val2)]);
         }
-        updateLines(event.type === "end"); 
+        // Forza propagazione real-time per aggiornare i boxplot nella sidebar
+        updateLines(true); 
     }
 
     function updateLines(propagateToDashboard = false) {
         lines.style("opacity", d => {
-            // Logica AND: il dato deve essere in TUTTI i range selezionati [cite: 8]
             const active = Array.from(selections).every(([dim, sel]) => d[dim] >= sel[0] && d[dim] <= sel[1]);
-            
-            // Highlight se selezionato esternamente (es. dalla PCA) 
             const externalMatch = hasSelection && selectedStints.some(s => 
                 s.Driver === d.Driver && Math.max(s.LapStart, d.LapStart) <= Math.min(s.LapEnd, d.LapEnd)
             );
@@ -268,5 +218,29 @@ axes.append("text")
             callbacks.onPCPBrush(selections.size === 0 ? [] : filtered);
         }
     }
+
+    function updatePCPTooltipPosition(event) {
+        const tooltip = d3.select("#tooltip");
+        const node = tooltip.node();
+        if (!node) return;
+        const rect = node.getBoundingClientRect();
+        const padding = 20;
+        const verticalDistance = 120; 
+        
+        let tx = event.pageX - (rect.width / 2);
+        let ty = event.pageY - rect.height - verticalDistance;
+
+        if (event.clientY < (rect.height + verticalDistance + padding)) {
+            ty = event.pageY + verticalDistance; 
+        }
+
+        if (tx < padding) tx = padding;
+        if (tx + rect.width > window.innerWidth - padding) {
+            tx = window.innerWidth - rect.width - padding;
+        }
+
+        tooltip.style("left", tx + "px").style("top", ty + "px").style("transform", "none");
+    }
+
     updateLines();
 }

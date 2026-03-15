@@ -15,12 +15,18 @@ const TEAM_COLORS = {
 
 // 1. Palette Lampprecht (Coerente con RankingsChart)
 const lampprechtPalette = [
-    "#006400", "#228b22", "#32cd32", "#7cfc00", "#adff2f", // Top 5 (Verdi)
-    "#d4ff00", "#eeff00", "#ffff00", "#fff700", "#ffea00", // P6-P10 (Gialli)
-    "#ffcc00", "#ffaa00", "#ff8800", "#ff6600", "#ff4400", // P11-P15 (Arancioni)
-    "#ff0000", "#dd0000", "#bb0000", "#990000", "#7f0000"  // P16-P20 (Rossi)
+    // P1 - P5: Verdi (da verde scuro a foresta, molto saturi)
+    "#004d00", "#008000", "#228b22", "#32cd32", "#7cfc00", 
+    
+    // P6 - P10: Gialli/Lime (Ora più differenziati: da lime a giallo oro)
+    "#befd2d", "#d4ff00", "#ffff00", "#ffd700", "#ffcc00", 
+    
+    // P11 - P15: Arancioni (Passaggio netto dal giallo all'ambra/arancio)
+    "#ffaa00", "#ff8c00", "#ff7b00", "#ff6200", "#ff4500", 
+    
+    // P16 - P20: Rossi (Da rosso vivo a bordeaux scuro)
+    "#ff0000", "#e60000", "#cc0000", "#990000", "#660000"
 ];
-
 const getRankColor = (position) => {
     const index = Math.max(0, Math.min(Math.floor(position) - 1, lampprechtPalette.length - 1));
     return lampprechtPalette[index];
@@ -179,66 +185,99 @@ export function drawLineChart(rawData, containerId, callbacks, selectedStints = 
             .attr("opacity", d => isLapInSelectedStints(d.Driver, d.LapNumber) ? 1 : 0)
             .attr("stroke", "#ffffff")
             .attr("stroke-width", 0.5)
-            .on("mouseover", function(event, d) {
-                // Porta la linea del pilota in primo piano durante l'hover
-                d3.select(this.parentNode.parentNode).selectAll("path")
-                    .filter(pathData => pathData && pathData[0].Driver === d.Driver)
-                    .raise()
-                    .attr("stroke-width", 4.5)
-                    .attr("opacity", 1);
+           
+.on("mouseover", function(event, d) {
+    // 1. Logica di evidenziazione (esistente)
+    d3.select(this.parentNode.parentNode).selectAll("path")
+        .filter(pathData => pathData && pathData[0].Driver === d.Driver)
+        .raise()
+        .attr("stroke-width", 4.5)
+        .attr("opacity", 1);
 
-                d3.select(this)
-                    .attr("opacity", 1)
-                    .attr("stroke-width", 2)
-                    .attr("r", FixedRadius + 2)
-                    .raise();
+    d3.select(this)
+        .attr("opacity", 1)
+        .attr("stroke-width", 2)
+        .attr("r", FixedRadius + 2)
+        .raise();
 
-                const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
-                
-                tooltip.classed("hidden", false)
-                    .html(`
-                        <div style="border-left: 4px solid ${driverColors.get(d.Driver)}; padding-left: 8px;">
-                            <div style="font-weight: bold; font-size: 1rem;">${d.Driver}</div>
-                            <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px;">
-                                <div>Lap: <strong>L${d.LapNumber}</strong></div>
-                                <div>Time: <strong>${d.LapTime.toFixed(3)}s</strong></div>
-                            </div>
+    // 2. Definizione colori per il tooltip
+    const compColor = d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff';
+    const driverColor = driverColors.get(d.Driver);
 
-                            <div style="margin-top: 8px; font-size: 0.85rem;">
-                                <div>Compound: <strong style="color:${compColor}">${d.Compound}</strong></div>
-                                <div>Tyre Age: <strong>${d.TyreLife} laps</strong></div>
-                            </div>
+    // 3. Tooltip Compatto (Strategia 1)
+    tooltip.classed("hidden", false)
+        .html(`
+            <div style="border-left: 4px solid ${driverColor}; padding-left: 8px;">
+                <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 15px;">
+                    <span>${d.Driver}</span>
+                    <span style="color:#aaa; font-weight:normal; font-size:0.75rem;">Lap L${d.LapNumber}</span>
+                </div>
 
-                            <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
-                            
-                            <div style="font-size: 0.75rem; color: #00ffcc;">
-                                Speed ST: <strong>${d.SpeedST || 'N/A'} km/h</strong>
-                            </div>
-                            ${d.IsSafetyCar ? '<div style="color: #ffd400; font-weight: bold; font-size: 0.7rem;">⚠️ SAFETY CAR PERIOD</div>' : ''}
-                        </div>
-                    `)
-                    .style("left", (event.pageX + 15) + "px")
-                    .style("top", (event.pageY - 28) + "px");
-            })
-            .on("mouseout", function(event, d) {
-                const selected = isLapInSelectedStints(d.Driver, d.LapNumber);
-                const isThisDriverSelected = isDriverSelected(d.Driver);
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 0.75rem; background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px;">
+                    <div>Time: <b style="color:#fff;">${d.LapTime.toFixed(3)}s</b></div>
+                    <div>Speed: <b style="color:#00ffcc;">${d.SpeedST || 'N/A'}</b></div>
+                    <div>Tyre: <b style="color:${compColor}">${d.Compound}</b></div>
+                    <div>Age: <b>${d.TyreLife} laps</b></div>
+                    ${d.IsSafetyCar ? '<div style="grid-column: span 2; color: #ffd400; font-weight: bold; font-size: 0.7rem; border-top: 1px solid #444; padding-top:2px;">⚠️ SAFETY CAR</div>' : ''}
+                </div>
+            </div>
+        `);
+    
+    // 4. Posizionamento (Strategia 2)
+    updateLineChartTooltipPosition(event);
+})
+.on("mousemove", function(event) {
+    updateLineChartTooltipPosition(event);
+})
+.on("mouseout", function(event, d) {
+    const selected = isLapInSelectedStints(d.Driver, d.LapNumber);
+    const isThisDriverSelected = isDriverSelected(d.Driver);
 
-                // Ripristina la linea
-                d3.select(this.parentNode.parentNode).selectAll("path")
-                    .filter(pathData => pathData && pathData[0].Driver === d.Driver)
-                    .attr("stroke-width", hasSelection ? (isThisDriverSelected ? 4.0 : 0.8) : 2.2)
-                    .attr("opacity", hasSelection ? (isThisDriverSelected ? 1 : 0.1) : 0.8);
+    // Ripristina la linea
+    d3.select(this.parentNode.parentNode).selectAll("path")
+        .filter(pathData => pathData && pathData[0].Driver === d.Driver)
+        .attr("stroke-width", hasSelection ? (isThisDriverSelected ? 4.0 : 0.8) : 2.2)
+        .attr("opacity", hasSelection ? (isThisDriverSelected ? 1 : 0.1) : 0.8);
 
-                d3.select(this)
-                    .attr("opacity", selected ? 1 : 0)
-                    .attr("r", FixedRadius)
-                    .attr("stroke-width", 0.5);
-                tooltip.classed("hidden", true);
-            });
-    });
+    d3.select(this)
+        .attr("opacity", selected ? 1 : 0)
+        .attr("r", FixedRadius)
+        .attr("stroke-width", 0.5);
+        
+    tooltip.classed("hidden", true);
+});
+
+// --- FUORI dalla funzione drawLineChart (o in fondo al file) ---
+
+function updateLineChartTooltipPosition(event) {
+    const tooltip = d3.select("#tooltip");
+    const node = tooltip.node();
+    if (!node) return;
+
+    const rect = node.getBoundingClientRect();
+    const padding = 20;
+    const verticalDistance = 120; // Grande offset per non coprire il groviglio di linee
+    
+    let x = event.pageX - (rect.width / 2); // Centra rispetto al mouse
+    let y = event.pageY - rect.height - verticalDistance; // Default: Sopra
+
+    // Inversione se tocca il bordo superiore (Strategia 2)
+    if (event.clientY < (rect.height + verticalDistance + padding)) {
+        y = event.pageY + verticalDistance; // Sposta Sotto
+    }
+
+    // Vincoli laterali
+    if (x < padding) x = padding;
+    if (x + rect.width > window.innerWidth - padding) {
+        x = window.innerWidth - rect.width - padding;
+    }
+
+    tooltip
+        .style("left", x + "px")
+        .style("top", y + "px")
+        .style("transform", "none");
+}
+});
 
     // --- ANALISI STINT SELEZIONATI (Regressione e Crossover) ---
     if (hasSelection) {

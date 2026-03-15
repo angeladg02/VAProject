@@ -352,76 +352,72 @@ function initDashboard() {
             }
         },
 
-        onPCPBrush: (activeStints) => {
-            if (activeStints.length === 0) {
-                drawStrategyGantt(stintsData, "#gantt-chart", callbacks, []);
-                drawLineChart(rawLapsData, "#line-chart", callbacks, []);
-                drawPCAChart(pcaData, "#pca-chart", callbacks, []);
-                drawRankingsChart(rawLapsData,"#position-chart", callbacks,[]);
-                
-                updateSidebar(""); // Stringa vuota ripristina i dati di default
-                return;
-            }
+         // ---- BRUSH PCP (Parallel Coordinates) ----
+onPCPBrush: (activeStints) => {
+    // 1. Controllo validità
+    if (!activeStints || activeStints.length === 0) {
+        // Reset totale se non c'è selezione
+        [drawStrategyGantt, drawLineChart, drawPCAChart, drawRankingsChart].forEach(draw => 
+            draw(stintsData, draw === drawLineChart || draw === drawRankingsChart ? rawLapsData : (draw === drawPCAChart ? pcaData : stintsData), callbacks, [])
+        );
+        updateSidebar("");
+        return;
+    }
 
-            const selectedStints = stintsData.filter(stint => {
-                return activeStints.some(active => 
-                    active.Driver === stint.Driver && 
-                    Math.max(active.LapStart, stint.LapStart) <= Math.min(active.LapEnd, stint.LapEnd)
-                );
-            });
+    // 2. Traduzione: Filtra gli stint globali che sono contenuti nella selezione del PCP
+    const selectedStints = stintsData.filter(stint =>
+    activeStints.some(active =>
+        active.Driver === stint.Driver &&
+        Math.max(stint.LapStart, active.LapStart) <= Math.min(stint.LapEnd, active.LapEnd)
+    )
+);
+    // 3. Verifica se abbiamo trovato degli stint
+    if (selectedStints.length === 0) {
+        console.warn("Nessuno stint corrispondente trovato per la selezione PCP");
+        return;
+    }
 
-            drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
-            drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
-            drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
-            drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
+    // 4. Filtra i giri (Laps) per i Boxplot
+    const selectedLaps = rawLapsData.filter(d =>
+        selectedStints.some(s =>
+            d.Driver === s.Driver &&
+            +d.LapNumber >= s.LapStart && 
+            +d.LapNumber <= s.LapEnd
+        )
+    );
 
-            let specificHTML = "";
-            if (selectedStints.length === 1) {
-                // ... [uguale a onStintClick per 1 stint] ...
-                 specificHTML = `
-                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Dettaglio Stint</h3>
-                    <p style="font-size: 0.85rem;">Pilota: <strong>${selectedStints[0].Driver}</strong></p>
-                    <p style="font-size: 0.85rem;">Mescola: <strong style="color: ${selectedStints[0].Compound === 'SOFT' ? '#e10600' : selectedStints[0].Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}">${selectedStints[0].Compound}</strong></p>
-                    <p style="font-size: 0.85rem;">Giri: ${selectedStints[0].LapStart} - ${selectedStints[0].LapEnd}</p>
-                `;
-            } else if (selectedStints.length === 2) {
-                const s1 = selectedStints[0];
-                const s2 = selectedStints[1];
-                const m1 = s1.DegradationSlope;
-                const mid1 = (s1.LapStart + s1.LapEnd) / 2;
-                const q1 = s1.AvgLapTime - (m1 * mid1);
-                const m2 = s2.DegradationSlope;
-                const mid2 = (s2.LapStart + s2.LapEnd) / 2;
-                const q2 = s2.AvgLapTime - (m2 * mid2);
+    // 5. Esegui il Redraw dei grafici
+    drawStrategyGantt(stintsData, "#gantt-chart", callbacks, selectedStints);
+    drawLineChart(rawLapsData, "#line-chart", callbacks, selectedStints);
+    drawPCAChart(pcaData, "#pca-chart", callbacks, selectedStints);
+    drawRankingsChart(rawLapsData, "#position-chart", callbacks, selectedStints);
 
-                let crossoverText = "Le strategie non si incrociano.";
-                if (m1 !== m2) {
-                    const crossoverLap = Math.round((q2 - q1) / (m1 - m2));
-                    if (crossoverLap > 0) {
-                        const winner = m1 < m2 ? s1.Driver : s2.Driver;
-                        const loser = m1 < m2 ? s2.Driver : s1.Driver;
-                        crossoverText = `<strong>${winner}</strong> sorpassa <strong>${loser}</strong> al giro <strong>~${crossoverLap}</strong>`;
-                    }
-                }
+    // 6. Aggiorna Sidebar e Boxplot
+    // IMPORTANTE: Assicurati che 'globalAvgLapTime' e 'globalAvgDegradation' siano definiti
+    updateSidebar(
+        getComparativeStatsHTML(selectedLaps, selectedStints, globalAvgLapTime, globalAvgDegradation)
+    );
 
-                const deltaDeg = Math.abs(m1 - m2).toFixed(3);
-                specificHTML = `
-                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Crossover Point</h3>
-                    <p style="font-size: 0.85rem;">${crossoverText}</p>
-                    <p style="font-size: 0.85rem;"><strong>Delta Degrado:</strong> ${deltaDeg} s/giro</p>
-                    <ul style="padding-left: 20px; font-size: 0.85rem;">
-                        <li><strong>${s1.Driver}:</strong> ${m1.toFixed(3)} s/l</li>
-                        <li><strong>${s2.Driver}:</strong> ${m2.toFixed(3)} s/l</li>
-                    </ul>
-                `;
-            } else {
-                specificHTML = `
-                    <h3 style="color: #00ffcc; font-size: 0.95rem;">Cluster Selezionato</h3>
-                    <p style="font-size: 0.85rem;">Stint evidenziati: <strong>${selectedStints.length}</strong></p>
-                `;
-            }
-            updateSidebar(specificHTML);
-        },
+    if (selectedLaps.length > 0) {
+        drawComparativeBoxplot(
+            rawLapsData.filter(d => +d.LapTimeSeconds > 0), // Global Laps
+            selectedLaps, 
+            "Global", "Selected",
+            "#888894", "#00ffcc", 0.15, 0.8,
+            "#sidebar-boxplot-pace", d => +d.LapTimeSeconds, "s"
+        );
+        
+        drawComparativeBoxplot(
+            stintsData, // Global Stints per degrado
+            selectedStints, 
+            "Global", "Selected",
+            "#888894", "#ff00ff", 0.15, 0.8,
+            "#sidebar-boxplot-deg", d => +d.DegradationSlope, "s/l"
+        );
+        
+        attachToggleButtons();
+    }
+},
 
        onRankingBrush: (selectedDrivers, minLap, maxLap) => {
             if (!selectedDrivers || selectedDrivers.length === 0) {

@@ -1,10 +1,17 @@
 import * as d3 from 'd3';
 
 const lampprechtPalette = [
-    "#006400", "#228b22", "#32cd32", "#7cfc00", "#adff2f", 
-    "#d4ff00", "#eeff00", "#ffff00", "#fff700", "#ffea00", 
-    "#ffcc00", "#ffaa00", "#ff8800", "#ff6600", "#ff4400", 
-    "#ff0000", "#dd0000", "#bb0000", "#990000", "#7f0000"
+    // P1 - P5: Verdi (da verde scuro a foresta, molto saturi)
+    "#004d00", "#008000", "#228b22", "#32cd32", "#7cfc00", 
+    
+    // P6 - P10: Gialli/Lime (Ora più differenziati: da lime a giallo oro)
+    "#befd2d", "#d4ff00", "#ffff00", "#ffd700", "#ffcc00", 
+    
+    // P11 - P15: Arancioni (Passaggio netto dal giallo all'ambra/arancio)
+    "#ffaa00", "#ff8c00", "#ff7b00", "#ff6200", "#ff4500", 
+    
+    // P16 - P20: Rossi (Da rosso vivo a bordeaux scuro)
+    "#ff0000", "#e60000", "#cc0000", "#990000", "#660000"
 ];
 
 const getRankColor = (position) => {
@@ -129,40 +136,48 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
                 .text(driver);
         }
 
-        path.on("mouseover", function(event) {
-            if (!isSelected) {
-                d3.select(this).attr("stroke-width", 4.5).attr("opacity", 1).raise();
-            }
-            
-            const lastLapNumber = d3.max(data, d => +d.LapNumber);
-            const lastLapData = data.filter(d => +d.LapNumber === lastLapNumber);
-            const winner = lastLapData.find(d => +d.Position === 1);
-            const currentDriverFinal = lastLapData.find(d => d.Driver === driver);
-            const teamName = laps[0].Team || "N/A";
-            
-            let timeInfo = "";
-            if (currentDriverFinal && winner) {
-                if (driver === winner.Driver) {
-                    timeInfo = `<div style="color: #ffd400; font-weight: bold; margin-top: 4px;">🏆 RACE WINNER</div>`;
-                } else {
-                    const gap = currentDriverFinal.LapStartSeconds - winner.LapStartSeconds;
-                    timeInfo = `<div style="margin-top: 4px;">Final Gap: <strong>+${gap.toFixed(3)}s</strong></div>`;
-                }
-            }
+        // --- 1. HTML COMPATTO NEL MOUSEOVER ---
+// Cerca la sezione .on("mouseover") all'interno di drawRankingsChart
 
-            d3.select("#tooltip").classed("hidden", false)
-                .html(`
-                    <div style="border-left: 4px solid ${driverColor}; padding-left: 8px;">
-                        <div style="font-weight: bold; font-size: 1rem;">${driver}</div>
-                        <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${teamName}</div>
-                        <div style="font-size: 0.85rem; color: #aaa;">Final Position: <strong>P${finalPos}</strong></div>
-                        <hr style="border: 0; border-top: 1px solid #444; margin: 6px 0;">
-                        <div style="font-size: 0.8rem;">${timeInfo}</div>
-                    </div>
-                `)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 20) + "px");
-        })
+path.on("mouseover", function(event) {
+    if (!isSelected) {
+        d3.select(this).attr("stroke-width", 4.5).attr("opacity", 1).raise();
+    }
+    
+    const lastLapNumber = d3.max(data, d => +d.LapNumber);
+    const lastLapData = data.filter(d => +d.LapNumber === lastLapNumber);
+    const winner = lastLapData.find(d => +d.Position === 1);
+    const currentDriverFinal = lastLapData.find(d => d.Driver === driver);
+    const teamName = laps[0].Team || "N/A";
+    
+    let timeInfo = "";
+    if (currentDriverFinal && winner) {
+        if (driver === winner.Driver) {
+            timeInfo = `<span style="color: #ffd400; font-weight: bold;">🏆 WINNER</span>`;
+        } else {
+            const gap = currentDriverFinal.LapStartSeconds - winner.LapStartSeconds;
+            timeInfo = `Gap: <b>+${gap.toFixed(3)}s</b>`;
+        }
+    }
+
+    d3.select("#tooltip").classed("hidden", false)
+        .html(`
+            <div style="border-left: 4px solid ${driverColor}; padding-left: 8px;">
+                <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 15px;">
+                    <span>${driver}</span>
+                    <span style="color:#aaa; font-weight:normal; font-size:0.75rem;">${teamName}</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 0.75rem; background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px;">
+                    <div>Final Pos: <b>P${finalPos}</b></div>
+                    <div>${timeInfo}</div>
+                </div>
+            </div>
+        `);
+    
+    updateRankingsTooltipPosition(event);
+})
+
         .on("mouseout", function() {
             if (!isSelected) {
                 d3.select(this)
@@ -212,4 +227,35 @@ export function drawRankingsChart(data, containerId, callbacks, selectedStints =
             }
         });
     });
+}
+
+// --- 2. LOGICA DI POSIZIONAMENTO (Strategia 2) ---
+
+function updateRankingsTooltipPosition(event) {
+    const tooltip = d3.select("#tooltip");
+    const node = tooltip.node();
+    if (!node) return;
+
+    const rect = node.getBoundingClientRect();
+    const padding = 20;
+    const verticalDistance = 120; // Grande offset per liberare la visuale sulle linee
+    
+    let x = event.pageX - (rect.width / 2);
+    let y = event.pageY - rect.height - verticalDistance; // Di base SOPRA
+
+    // Inversione se siamo troppo in alto (Strategia 2)
+    if (event.clientY < (rect.height + verticalDistance + padding)) {
+        y = event.pageY + verticalDistance; // Sposta SOTTO
+    }
+
+    // Vincoli orizzontali
+    if (x < padding) x = padding;
+    if (x + rect.width > window.innerWidth - padding) {
+        x = window.innerWidth - rect.width - padding;
+    }
+
+    tooltip
+        .style("left", x + "px")
+        .style("top", y + "px")
+        .style("transform", "none");
 }

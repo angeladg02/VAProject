@@ -150,17 +150,16 @@ html, body {
 }
 /* --- TOOLTIP FLUTTUANTE --- */
 #tooltip {
-    position: absolute;
-    background-color: rgba(21, 21, 30, 0.95); /* Colore scuro della tua palette con un po' di trasparenza */
-    border: 1px solid #333344;
-    border-radius: 6px;
-    padding: 10px 15px;
-    color: #f5f5f5;
-    font-size: 0.8rem;
-    pointer-events: none; /* FONDAMENTALE: impedisce al tooltip di bloccare il mouse */
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
-    z-index: 1000; /* Lo tiene sempre in primo piano sopra tutti i grafici */
-    transition: opacity 0.2s ease; /* Effetto dissolvenza morbido */
+    max-width: 300px;
+    backdrop-filter: blur(4px); // Rende lo sfondo semi-trasparente ma leggibile
+    background-color: rgba(21, 21, 30, 0.8); // Più trasparente per vedere il grafico sotto
+    
+    .tooltip-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        font-size: 0.75rem;
+    }
 }
 
 /* Quando il tooltip ha questa classe, scompare */

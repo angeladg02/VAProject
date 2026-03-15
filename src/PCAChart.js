@@ -108,36 +108,33 @@ g.append("g")
       // ... (codice precedente dei punti)
 .on("mouseover", function(event, d) {
     d3.select(this)
-        .attr("r", 8) // Aumenta leggermente il raggio per feedback visivo
+        .attr("r", 8) 
         .attr("stroke", "#ffffff")
         .attr("stroke-width", 2)
         .raise();
     
-    // TOOLTIP OTTIMIZZATO
+    // Tooltip Compatto (Strategia 1)
     tooltip.classed("hidden", false)
         .html(`
             <div style="border-left: 4px solid #888; padding-left: 8px;">
-                <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">
-                    ${d.Driver} 
+                <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 15px;">
+                    <span>${d.Driver} <span style="font-weight:normal; color:#aaa;">#${d.StintNumber || d.StintID}</span></span>
+                    <span style="color:${getCompoundColor(d.Compound)}">${d.Compound}</span>
                 </div>
-                 <div style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px;">${d.Team}</div>
-                <div style="margin-bottom: 2px;">
-                    Stint: <strong>#${d.StintNumber || d.StintID}</strong> | 
-                    Compound: <span style="color:${d.Compound === 'SOFT' ? '#e10600' : d.Compound === 'MEDIUM' ? '#ffeb3b' : '#ffffff'}; font-weight: bold;">${d.Compound}</span>
-                </div>
-                <hr style="border: 0; border-top: 1px solid #444; margin: 4px 0;">
-                <div style="font-size: 0.85rem;">
-                    <div>Laps Completed: <strong>${d.TotalLaps}</strong></div>
-                    <div>Avg Degradation: <strong>${d.DegradationSlope ? d.DegradationSlope.toFixed(3) : 'N/A'} s/l</strong></div>
-                    <div style="margin-top: 4px; color: #00ffcc; font-family: monospace;">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 0.75rem; background: rgba(255,255,255,0.03); padding: 6px; border-radius: 4px;">
+                    <div>Laps: <b>${d.TotalLaps}</b></div>
+                    <div>Deg: <b>${d.DegradationSlope ? d.DegradationSlope.toFixed(3) : 'N/A'}</b></div>
+                    <div style="grid-column: span 2; color: #00ffcc; font-family: monospace; border-top: 1px solid #444; padding-top: 2px;">
                         PC1: ${d.PC1.toFixed(2)} | PC2: ${d.PC2.toFixed(2)}
                     </div>
                 </div>
             </div>
-        `)
-        .style("left", (event.pageX + 15) + "px")
-        .style("top", (event.pageY - 28) + "px");
+        `);
+    
+    updatePCATooltipPosition(event);
 })
+.on("mousemove", (event) => updatePCATooltipPosition(event))
 // ... (codice successivo on("mouseout"))
         .on("mouseout", function(event, d) {
             tooltip.classed("hidden", true);
@@ -162,4 +159,33 @@ g.append("g")
         });
         if (callbacks && callbacks.onStintClick) callbacks.onStintClick(geometricallySelected);
     }
+}
+
+function updatePCATooltipPosition(event) {
+    const tooltip = d3.select("#tooltip");
+    const node = tooltip.node();
+    if (!node) return;
+
+    const rect = node.getBoundingClientRect();
+    const padding = 20;
+    const verticalDistance = 120; // Grande offset per non coprire i cluster di punti
+    
+    let x = event.pageX - (rect.width / 2); // Centra orizzontalmente
+    let y = event.pageY - rect.height - verticalDistance; // Default: Sopra
+
+    // Inversione se tocca il bordo superiore (Strategia 2)
+    if (event.clientY < (rect.height + verticalDistance + padding)) {
+        y = event.pageY + verticalDistance; // Sposta Sotto
+    }
+
+    // Vincoli laterali
+    if (x < padding) x = padding;
+    if (x + rect.width > window.innerWidth - padding) {
+        x = window.innerWidth - rect.width - padding;
+    }
+
+    tooltip
+        .style("left", x + "px")
+        .style("top", y + "px")
+        .style("transform", "none");
 }
