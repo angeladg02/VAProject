@@ -224,11 +224,14 @@ export function drawParallelCoordinates(rawData, containerId, callbacks, selecte
             updateTooltipPosition(event);
         })
         .on("mousemove", updateTooltipPosition)
-        .on("mouseleave", function(event, d) {
-    // Nascondi il tooltip e resetta l'opacità per gli altri grafici
-    tooltip.classed("hidden", true)
-           .style("opacity", 0); 
-
+       // In ParallelCoordinates.js
+.on("mouseleave", function(event, d) {
+    // Nascondi il tooltip
+    tooltip.classed("hidden", true);
+    
+    // IMPORTANTE: Non settare .style("opacity", 0) qui se gli altri grafici non la resettano.
+    // Oppure, se vuoi resettarla, assicurati di farlo ovunque.
+    
     // Ripristina lo stile della linea
     d3.select(this)
         .style("stroke-width", getLineWidth(d))
